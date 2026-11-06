@@ -49,10 +49,20 @@ PopupWindow {
                 id: previewImage
                 anchors.fill: parent
                 captureSource: preview.hoveredToplevel?.wayland ?? null
-                live: true
+                // Один кадр вместо постоянно работающего видеопотока.
+                live: false
                 paintCursor: false
                 visible: hasContent
                 z: 1
+
+                onCaptureSourceChanged: {
+                    if (!captureSource)
+                        return;
+                    Qt.callLater(function() {
+                        if (previewImage.captureSource)
+                            previewImage.captureFrame();
+                    });
+                }
 
                 layer.enabled: true
                 layer.effect: OpacityMask {
@@ -86,6 +96,7 @@ PopupWindow {
                     return preview.hoveredToplevel ? IconService.resolve(preview.hoveredToplevel) : "";
                 }
                 cache: true
+                sourceSize: Qt.size(32, 32)
                 fillMode: Image.PreserveAspectFit
                 smooth: true
             }

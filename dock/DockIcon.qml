@@ -56,6 +56,9 @@ Item {
             anchors.fill: parent
             source: iconRoot.iconPath
             cache: true
+            // Keep two physical pixels per displayed pixel without retaining
+            // unnecessarily large desktop icon bitmaps in the image cache.
+            sourceSize: Qt.size(Math.ceil(width * 2), Math.ceil(height * 2))
             fillMode: Image.PreserveAspectFit
             smooth: true
             visible: iconRoot.iconPath !== "" && status === Image.Ready
