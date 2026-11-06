@@ -30,8 +30,9 @@ Item {
     readonly property var windows: modelData.windows
     readonly property bool isCurrent: modelData.key === activeWorkspaceKey
     readonly property int hoveredIndex: windows.findIndex(item => String(item?.address ?? "") === hoveredAddress)
+    readonly property var hoveredIcon: iconRepeater.itemAt(hoveredIndex)
     readonly property real hoveredIconCenterX: {
-        const icon = iconRepeater.itemAt(hoveredIndex);
+        const icon = hoveredIcon;
         return icon ? groupRoot.x + icon.x + icon.width / 2 : 0;
     }
 

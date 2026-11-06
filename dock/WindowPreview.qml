@@ -14,9 +14,11 @@ PopupWindow {
     // один snapshot кадр, а не постоянный ScreencopyView live-поток.
     required property var panelWindow
     required property var hoveredToplevel
+    required property var hoveredIconItem
     required property bool panelOpen
     required property real capsuleY
     property var displayedToplevel: null
+    property var displayedIconItem: null
 
     // Размер сохраняет пропорции исходного окна, ограничиваясь базовым 16:9.
     readonly property real contentAspect: previewImage.hasContent
@@ -25,18 +27,33 @@ PopupWindow {
         ? previewImage.sourceSize.width / previewImage.sourceSize.height
         : Metrics.previewWidth / Metrics.previewHeight
 
+    // Keep the popup attached to the stable panel window. The icon is used
+    // only as a coordinate source in onAnchoring, avoiding PopupAnchor's
+    // one-time item-position calculation for moving Repeater delegates.
     anchor.window: panelWindow
-    anchor.rect.x: panelWindow
-        ? Math.round(Math.max(8, Math.min(panelWindow.width - width - 8,
-                                          panelWindow.hoveredIconCenterX - width / 2)))
-        : 0
-    anchor.rect.y: Math.round(capsuleY - height - 12)
+    anchor.edges: Edges.Top | Edges.Left
+    anchor.gravity: Edges.Bottom | Edges.Right
+    anchor.adjustment: PopupAdjustment.SlideX | PopupAdjustment.SlideY
     implicitWidth: contentAspect >= Metrics.previewWidth / Metrics.previewHeight
         ? Metrics.previewWidth
         : Metrics.previewHeight * contentAspect
     implicitHeight: implicitWidth / contentAspect + Metrics.previewTitleHeight
     color: "transparent"
-    visible: panelOpen && hoveredToplevel !== null
+    visible: panelOpen && hoveredToplevel !== null && displayedIconItem !== null
+
+    // Convert the frozen icon position into panel-window coordinates only when
+    // the popup is about to be shown. The preview bottom stays 10 px above the
+    // bar's top edge, not above a moving icon's current visual center.
+    anchor.onAnchoring: {
+        if (!displayedIconItem || !panelWindow?.contentItem)
+            return;
+
+        const iconPosition = displayedIconItem.mapToItem(panelWindow.contentItem, 0, 0);
+        anchor.rect.x = Math.round(iconPosition.x
+                                   + displayedIconItem.width / 2
+                                   - width / 2);
+        anchor.rect.y = Math.round(capsuleY - height - Metrics.gaps);
+    }
 
     // При смене окна карточка появляется от нижней центральной точки — над
     // активной иконкой. PopupWindow сам не поддерживает scale, поэтому
@@ -46,6 +63,7 @@ PopupWindow {
             return;
 
         displayedToplevel = hoveredToplevel;
+        displayedIconItem = hoveredIconItem;
         previewFrame.scale = 0.12;
         previewFrame.opacity = 0;
         revealAnimation.restart();
@@ -53,11 +71,22 @@ PopupWindow {
 
     Component.onCompleted: {
         displayedToplevel = hoveredToplevel;
+        displayedIconItem = hoveredIconItem;
         if (hoveredToplevel) {
             previewFrame.scale = 0.12;
             previewFrame.opacity = 0;
             revealAnimation.restart();
         }
+    }
+
+    // The loader can create the popup one binding pass before the Repeater
+    // exposes its icon. Make the icon arrival itself reopen the anchor.
+    onHoveredIconItemChanged: {
+        if (!hoveredIconItem || !hoveredToplevel)
+            return;
+        displayedIconItem = hoveredIconItem;
+        if (visible)
+            anchor.updateAnchor();
     }
 
     // Один общий transition для opacity и scale; 512 мс — согласованное время
@@ -70,14 +99,14 @@ PopupWindow {
             property: "scale"
             from: 0.12
             to: 1
-            duration: 512
+            duration: Motion.transitionDuration
         }
         StandardAnimation {
             target: previewFrame
             property: "opacity"
             from: 0
             to: 1
-            duration: 512
+            duration: Motion.transitionDuration
         }
     }
 
@@ -101,19 +130,26 @@ PopupWindow {
                 id: previewImage
                 anchors.fill: parent
                 captureSource: preview.displayedToplevel?.wayland ?? null
-                // Один кадр вместо постоянно работающего видеопотока.
-                live: false
+                // Start the capture only while the view is waiting for its
+                // first frame. It is stopped in onHasContentChanged, so the
+                // preview remains a snapshot instead of a live stream.
+                live: captureSource !== null && !hasContent
                 paintCursor: false
-                visible: hasContent
+                // The item must be visible while the recording context is
+                // being created; hiding it until hasContent prevents that
+                // context from becoming ready.
+                visible: preview.panelOpen
                 z: 1
 
                 onCaptureSourceChanged: {
-                    if (!captureSource)
-                        return;
-                    Qt.callLater(function() {
-                        if (previewImage && previewImage.captureSource)
-                            previewImage.captureFrame();
-                    });
+                    // A reused preview must start one fresh capture for the
+                    // newly hovered window.
+                    live = captureSource !== null;
+                }
+
+                onHasContentChanged: {
+                    if (hasContent)
+                        live = false;
                 }
 
                 layer.enabled: true

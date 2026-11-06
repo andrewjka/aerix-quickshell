@@ -15,6 +15,7 @@ PanelWindow {
     // Локальные aliases делают геометрию ниже читаемой и оставляют все tokens
     // в одном singleton Metrics.
     readonly property int panelHeight: Metrics.panelHeight
+    readonly property int monitorMargin: Metrics.monitorMargin
     readonly property int bottomMargin: Metrics.bottomMargin
     readonly property int triggerHeight: Metrics.triggerHeight
     readonly property int outerPad: Metrics.outerPad
@@ -105,9 +106,21 @@ PanelWindow {
         for (let i = 0; i < groupRepeater.count; i++) {
             const group = groupRepeater.itemAt(i);
             if (group && group.hoveredIndex >= 0)
-                return group.hoveredIconCenterX;
+                return capsule.x
+                       + groupsFlickable.x
+                       - groupsFlickable.contentX
+                       + groupsRow.x
+                       + group.hoveredIconCenterX;
         }
-        return panelWidth / 2;
+        return capsule.x + panelWidth / 2;
+    }
+    readonly property var hoveredIconItem: {
+        for (let i = 0; i < groupRepeater.count; i++) {
+            const group = groupRepeater.itemAt(i);
+            if (group && group.hoveredIndex >= 0)
+                return group.hoveredIcon;
+        }
+        return null;
     }
     readonly property var hoveredToplevel: {
         DockService.toplevelSnapshot;
@@ -144,7 +157,7 @@ PanelWindow {
 
     Timer {
         id: clickHoldTimer
-        interval: 1128
+        interval: Motion.panelCloseDelay
         onTriggered: {
             if (!panelHover.hovered)
                 closePanel();
@@ -165,6 +178,14 @@ PanelWindow {
         }
     }
 
+    function stepWorkspaceFromWheel(direction) {
+        if (DockService.stepWorkspace(modelData.name, direction))
+            return;
+        activeOutline.edgeNudgeDirection = direction < 0 ? -1 : 1;
+        activeOutline.edgeNudge = 0;
+        edgeNudgeAnimation.restart();
+    }
+
     // Preview создаётся только при реальном наведении. После закрытия панели
     // тяжёлый ScreencopyView уничтожается вместе с PopupWindow.
     LazyLoader {
@@ -174,6 +195,7 @@ PanelWindow {
         component: WindowPreview {
             panelWindow: win
             hoveredToplevel: win.hoveredToplevel
+            hoveredIconItem: win.hoveredIconItem
             panelOpen: win.open
             capsuleY: capsule.y
         }
@@ -222,16 +244,48 @@ PanelWindow {
         // Flickable клипует плотную раскладку и даёт горизонтальное перемещение
         // только когда количество окон действительно не помещается.
         Flickable {
+            id: groupsFlickable
             x: win.innerPad - win.layoutHoverBuffer
             y: -20
             width: parent.width - 2 * win.innerPad + 2 * win.layoutHoverBuffer
-            height: parent.height + 20
+            // Leave the lower monitor-margin area available for the enlarged
+            // icon and the 8 px press displacement.
+            height: parent.height + 20 + Metrics.iconOverflow
             visible: win.groups.length > 0
             clip: true
             contentWidth: groupsRow.width + 2 * win.layoutHoverBuffer
             contentHeight: height
             flickableDirection: Flickable.HorizontalFlick
             boundsBehavior: Flickable.StopAtBounds
+
+            // The wheel target is inside this Flickable (usually a DockIcon),
+            // so keep the handler on the same input subtree and block the
+            // Flickable's own horizontal scrolling.
+            WheelHandler {
+                id: workspaceWheel
+                acceptedButtons: Qt.NoButton
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                orientation: Qt.Vertical
+                blocking: true
+                property int deltaAccumulator: 0
+
+                onWheel: wheel => {
+                    if (!win.panelFullyOpen)
+                        return;
+
+                    deltaAccumulator += wheel.angleDelta.y;
+                    while (deltaAccumulator >= 120) {
+                        deltaAccumulator -= 120;
+                        // Inverted: wheel up moves to the next workspace.
+                        win.stepWorkspaceFromWheel(1);
+                    }
+                    while (deltaAccumulator <= -120) {
+                        deltaAccumulator += 120;
+                        // Inverted: wheel down moves to the previous workspace.
+                        win.stepWorkspaceFromWheel(-1);
+                    }
+                }
+            }
 
             Row {
                 id: groupsRow
@@ -304,6 +358,8 @@ PanelWindow {
                 property real slideFromX: 0
                 property real slideFromWidth: 0
                 property real verticalExpansion: 0
+                property real edgeNudge: 0
+                property real edgeNudgeDirection: 1
 
                 readonly property real destinationX: displayedGroup ? groupsRow.x + displayedGroup.x + displayedGroup.leftWorkspaceGap + 2 : 0
                 readonly property real destinationWidth: displayedGroup ? displayedGroup.width - displayedGroup.leftWorkspaceGap - displayedGroup.rightWorkspaceGap - 4 : 0
@@ -323,7 +379,7 @@ PanelWindow {
                 }
 
                 visible: displayedGroup !== null
-                x: slideFromX + (destinationX - slideFromX) * slideProgress
+                x: slideFromX + (destinationX - slideFromX) * slideProgress + edgeNudge
                 y: groupsRow.y + 11 - verticalExpansion / 2
                 width: slideFromWidth + (destinationWidth - slideFromWidth) * slideProgress
                 height: 26 + verticalExpansion
@@ -344,7 +400,7 @@ PanelWindow {
                             property: "verticalExpansion"
                             from: 0
                             to: 20
-                            duration: Motion.workspaceSlideDuration
+                            duration: Motion.transitionDuration
                         }
 
                         StandardAnimation {
@@ -353,7 +409,7 @@ PanelWindow {
                             property: "slideProgress"
                             from: 0
                             to: 1
-                            duration: Motion.workspaceSlideDuration
+                            duration: Motion.transitionDuration
                         }
                     }
 
@@ -362,7 +418,27 @@ PanelWindow {
                         property: "verticalExpansion"
                         from: 20
                         to: 0
-                        duration: Motion.workspaceSlideDuration
+                        duration: Motion.transitionDuration
+                    }
+                }
+
+                // A boundary hit gets a small horizontal elastic response.
+                SequentialAnimation {
+                    id: edgeNudgeAnimation
+
+                    StandardAnimation {
+                        target: activeOutline
+                        property: "edgeNudge"
+                        from: 0
+                        to: activeOutline.edgeNudgeDirection * 8
+                        duration: Motion.pressDuration
+                    }
+                    StandardAnimation {
+                        target: activeOutline
+                        property: "edgeNudge"
+                        from: activeOutline.edgeNudgeDirection * 8
+                        to: 0
+                        duration: Motion.pressDuration
                     }
                 }
             }

@@ -79,4 +79,30 @@ QtObject {
             : `focuswindow ${selector}`;
         Hyprland.dispatch(command);
     }
+
+    /** Переключает на соседний существующий workspace текущего монитора. */
+    function stepWorkspace(screenName, direction) {
+        const monitor = Hyprland.monitors.values.find(item => item?.name === screenName);
+        const activeWorkspace = monitor?.activeWorkspace;
+        if (!activeWorkspace)
+            return false;
+
+        const workspaces = Hyprland.workspaces.values
+            .filter(item => item?.monitor?.name === screenName)
+            .sort((left, right) => left.id - right.id);
+        const activeIndex = workspaces.findIndex(item => item.id === activeWorkspace.id);
+        if (activeIndex < 0)
+            return false;
+
+        const nextIndex = activeIndex + (direction < 0 ? -1 : 1);
+        if (nextIndex < 0 || nextIndex >= workspaces.length)
+            return false;
+
+        const workspaceId = String(workspaces[nextIndex].id);
+        const command = Hyprland.usingLua
+            ? `hl.dsp.focus({ workspace = "${workspaceId}" })`
+            : "workspace " + workspaceId;
+        Hyprland.dispatch(command);
+        return true;
+    }
 }

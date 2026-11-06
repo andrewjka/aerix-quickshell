@@ -4,8 +4,10 @@ import QtQml
 
 QtObject {
     // Базовые размеры Dock и его невидимой области активации.
+    readonly property int gaps: 10
     readonly property int panelHeight: 62
-    readonly property int bottomMargin: 10
+    readonly property int monitorMargin: gaps
+    readonly property int bottomMargin: monitorMargin
     readonly property int triggerHeight: 8
     readonly property int outerPad: 12
     readonly property int innerPad: 16
@@ -21,6 +23,7 @@ QtObject {
     readonly property int previewWidth: 440
     readonly property int previewHeight: 248
     readonly property int previewTitleHeight: 30
+    readonly property int iconOverflow: 10
 
     readonly property real capsuleRadius: 8
     readonly property real previewRadius: 12

@@ -19,6 +19,7 @@ Item {
     property real hoverOffsetTarget: 0
     property real baseX: 0
     property real hoverOffset: 0
+    property real pressOffset: 0
 
     // Указатель используется DockPanel после выезда панели, чтобы понять,
     // находится ли курсор уже над иконкой, даже если entered произошёл раньше.
@@ -52,14 +53,22 @@ Item {
     // занимаемую моделью ширину и не ломает плотную раскладку.
     Item {
         x: (parent.width - width) / 2
-        y: 3
+        y: 3 + iconRoot.pressOffset
         width: 38
         height: 38
-        scale: iconRoot.isHovered ? 1.5 : 1
+        // Масштаб читается прямо из MouseArea. Поэтому задержка общего
+        // hoveredAddress не может увеличить иконку уже после ухода курсора.
+        scale: iconRoot.pointerInside ? 1.5 : 1
         transformOrigin: Item.Center
 
         Behavior on scale {
             StandardAnimation {}
+        }
+
+        Behavior on y {
+            StandardAnimation {
+                duration: Motion.pressDuration
+            }
         }
 
         // sourceSize ограничивает bitmap-кэш двумя пикселями на экранный пиксель.
@@ -103,8 +112,16 @@ Item {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
 
-        onEntered: iconRoot.hoverEntered(iconRoot.toplevel)
-        onExited: iconRoot.hoverExited(iconRoot.toplevel)
+        onPressed: iconRoot.pressOffset = 8
+        onReleased: iconRoot.pressOffset = 0
+        onCanceled: iconRoot.pressOffset = 0
+
+        onEntered: {
+            iconRoot.hoverEntered(iconRoot.toplevel);
+        }
+        onExited: {
+            iconRoot.hoverExited(iconRoot.toplevel);
+        }
         onClicked: iconRoot.activated(iconRoot.toplevel)
     }
 }
