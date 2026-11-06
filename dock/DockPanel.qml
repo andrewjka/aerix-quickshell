@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Effects
+import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
@@ -30,6 +31,7 @@ PanelWindow {
 
     property bool open: false
     property string hoveredAddress: ""
+    property int iconRevision: 0
 
     component StandardAnimation: NumberAnimation {
         duration: win.animationDuration
@@ -82,12 +84,13 @@ PanelWindow {
     readonly property string activeWorkspaceKey: String(groups[0]?.monitor?.activeWorkspace?.name ?? "")
     readonly property int previewWidth: 440
     readonly property int previewHeight: 248
+    readonly property int previewTitleHeight: 30
 
     readonly property var hoveredToplevel: {
         const address = win.hoveredAddress;
         if (!address) return null;
         for (const group of win.groups) {
-            const toplevel = group.windows.find(tl => String(tl.address) === address);
+            const toplevel = group.windows.find(tl => String(tl?.address ?? "") === address);
             if (toplevel) return toplevel;
         }
         return null;
@@ -125,6 +128,16 @@ PanelWindow {
         onTriggered: {
             if (!panelHover.hovered)
                 closePanel();
+        }
+    }
+
+    // DesktopEntries watches the application directories itself. Bump a
+    // revision when it changes so existing delegates resolve their icon again
+    // without a timer or periodic polling.
+    Connections {
+        target: DesktopEntries
+        function onApplicationsChanged() {
+            win.iconRevision += 1;
         }
     }
 
@@ -190,8 +203,15 @@ PanelWindow {
         anchor.window: win
         anchor.rect.x: Math.round((win.width - width) / 2)
         anchor.rect.y: Math.round(capsule.y - height - 12)
-        width: win.previewWidth
-        height: win.previewHeight
+        readonly property real contentAspect: previewImage.hasContent
+            && previewImage.sourceSize.width > 0
+            && previewImage.sourceSize.height > 0
+            ? previewImage.sourceSize.width / previewImage.sourceSize.height
+            : win.previewWidth / win.previewHeight
+        implicitWidth: contentAspect >= win.previewWidth / win.previewHeight
+            ? win.previewWidth
+            : win.previewHeight * contentAspect
+        implicitHeight: implicitWidth / contentAspect + win.previewTitleHeight
         color: "transparent"
         visible: win.open && win.hoveredToplevel !== null
 
@@ -200,32 +220,85 @@ PanelWindow {
             anchors.fill: parent
             radius: 12
             color: "#ff1b2431"
-            border.width: 1
-            border.color: "#66ffffff"
             clip: true
 
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowBlur: 0.6
-                shadowColor: Qt.rgba(26 / 255, 26 / 255, 26 / 255, 0.48)
-                shadowOpacity: 1
-                shadowHorizontalOffset: 0
-                shadowVerticalOffset: 0
+            Item {
+                id: previewImageArea
+                x: 0
+                y: win.previewTitleHeight
+                width: parent.width
+                height: windowPreview.implicitWidth / windowPreview.contentAspect
+
+                ScreencopyView {
+                    id: previewImage
+                    anchors.fill: parent
+                    captureSource: win.hoveredToplevel?.wayland ?? null
+                    live: true
+                    paintCursor: false
+                    visible: hasContent
+                    z: 1
+
+                    // Round only the image itself. The status bar is a
+                    // separate block above it, so it cannot cover the image.
+                    layer.enabled: true
+                    layer.effect: OpacityMask {
+                        maskSource: Rectangle {
+                            width: previewImage.width
+                            height: previewImage.height
+                            radius: 12
+                        }
+                    }
+                }
             }
 
-            ScreencopyView {
-                id: previewImage
-                anchors.centerIn: parent
-                constraintSize.width: previewFrame.width - 16
-                constraintSize.height: previewFrame.height - 16
-                width: implicitWidth
-                height: implicitHeight
-                captureSource: win.hoveredToplevel?.wayland ?? null
-                live: true
-                paintCursor: false
-                visible: hasContent
+            Rectangle {
+                id: previewTitleBar
+                x: 0
+                y: 0
+                width: parent.width
+                height: win.previewTitleHeight
+                color: "#e61b2431"
+                z: 2
+                radius: 12
+
+                Image {
+                    id: previewIcon
+                    x: 10
+                    y: (parent.height - height) / 2
+                    width: 16
+                    height: 16
+                    source: {
+                        win.iconRevision;
+                        return win.hoveredToplevel ? win.iconFor(win.hoveredToplevel) : "";
+                    }
+                    cache: true
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                }
+
+                Text {
+                    anchors.left: previewIcon.right
+                    anchors.leftMargin: 8
+                    anchors.right: parent.right
+                    anchors.rightMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: String(win.hoveredToplevel?.title
+                                 ?? win.hoveredToplevel?.lastIpcObject?.title
+                                 ?? "Preview")
+                    color: "#f2ffffff"
+                    font.pixelSize: 12
+                    elide: Text.ElideRight
+                }
             }
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 12
+            color: "transparent"
+            border.width: 1
+            border.color: "#66ffffff"
+            z: 3
         }
     }
 
@@ -297,7 +370,7 @@ PanelWindow {
                         required property int index
 
                         readonly property bool isCurrent: modelData.key === win.activeWorkspaceKey
-                        readonly property int hoveredIndex: modelData.windows.findIndex(tl => String(tl.address) === win.hoveredAddress)
+                        readonly property int hoveredIndex: modelData.windows.findIndex(tl => String(tl?.address ?? "") === win.hoveredAddress)
 
                         // Workspace spacing
                         property real workspacePadding: isCurrent ? win.activeWorkspacePadding : 0
@@ -363,8 +436,11 @@ PanelWindow {
 
                                     readonly property var toplevel: modelData
                                     readonly property string appClass: String(toplevel?.lastIpcObject?.class ?? toplevel?.wayland?.appId ?? "")
-                                    readonly property string iconPath: win.iconFor(toplevel)
-                                    readonly property bool isHovered: win.hoveredAddress === String(toplevel.address)
+                                    readonly property string iconPath: {
+                                        win.iconRevision;
+                                        return win.iconFor(toplevel);
+                                    }
+                                    readonly property bool isHovered: win.hoveredAddress === String(toplevel?.address ?? "")
                                     readonly property real hoverOffsetTarget: {
                                         if (groupCapsule.hoveredIndex < 0)
                                             return 0;
@@ -404,6 +480,7 @@ PanelWindow {
                                             id: appImage
                                             anchors.fill: parent
                                             source: iconPath
+                                            cache: true
                                             fillMode: Image.PreserveAspectFit
                                             smooth: true
                                             visible: iconPath !== "" && status === Image.Ready
@@ -430,7 +507,7 @@ PanelWindow {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onEntered: win.hoveredAddress = String(toplevel.address)
+                                        onEntered: win.hoveredAddress = String(toplevel?.address ?? "")
                                         onExited: {
                                             if (isHovered)
                                                 win.hoveredAddress = "";
