@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Effects
 import "../core"
 import "../services"
 
@@ -60,6 +61,19 @@ Item {
         // hoveredAddress не может увеличить иконку уже после ухода курсора.
         scale: iconRoot.pointerInside ? 1.5 : 1
         transformOrigin: Item.Center
+
+        // Временная тестовая тень: полностью непрозрачная, чисто красная.
+        // Эффект стоит на общем контейнере, поэтому виден и для обычной
+        // иконки приложения, и для резервной буквы при отсутствии файла.
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: Qt.rgba(26 / 255, 26 / 255, 26 / 255, 0.48)
+            shadowOpacity: 1
+            shadowBlur: 0.6
+            shadowHorizontalOffset: 0
+            shadowVerticalOffset: 0
+        }
 
         Behavior on scale {
             StandardAnimation {}
