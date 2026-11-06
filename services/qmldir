@@ -1,1 +1,2 @@
 singleton IconService 1.0 IconService.qml
+singleton DockService 1.0 DockService.qml

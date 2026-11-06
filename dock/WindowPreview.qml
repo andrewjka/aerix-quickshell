@@ -10,12 +10,15 @@ import "../services"
 PopupWindow {
     id: preview
 
+    // Popup создаётся LazyLoader только при наведении. Внутри используется
+    // один snapshot кадр, а не постоянный ScreencopyView live-поток.
     required property var panelWindow
     required property var hoveredToplevel
     required property bool panelOpen
     required property real capsuleY
     property var displayedToplevel: null
 
+    // Размер сохраняет пропорции исходного окна, ограничиваясь базовым 16:9.
     readonly property real contentAspect: previewImage.hasContent
         && previewImage.sourceSize.width > 0
         && previewImage.sourceSize.height > 0
@@ -35,6 +38,9 @@ PopupWindow {
     color: "transparent"
     visible: panelOpen && hoveredToplevel !== null
 
+    // При смене окна карточка появляется от нижней центральной точки — над
+    // активной иконкой. PopupWindow сам не поддерживает scale, поэтому
+    // анимируется внутренний Rectangle.
     onHoveredToplevelChanged: {
         if (!hoveredToplevel || !previewFrame)
             return;
@@ -54,6 +60,8 @@ PopupWindow {
         }
     }
 
+    // Один общий transition для opacity и scale; 512 мс — согласованное время
+    // движения превью.
     ParallelAnimation {
         id: revealAnimation
 
@@ -81,6 +89,7 @@ PopupWindow {
         clip: true
         transformOrigin: Item.Bottom
 
+        // Область snapshot ниже status bar.
         Item {
             id: previewImageArea
             x: 0
@@ -102,7 +111,7 @@ PopupWindow {
                     if (!captureSource)
                         return;
                     Qt.callLater(function() {
-                        if (previewImage.captureSource)
+                        if (previewImage && previewImage.captureSource)
                             previewImage.captureFrame();
                     });
                 }
@@ -118,6 +127,7 @@ PopupWindow {
             }
         }
 
+        // Status bar находится поверх snapshot и содержит только лёгкие данные.
         Rectangle {
             id: previewTitleBar
             x: 0

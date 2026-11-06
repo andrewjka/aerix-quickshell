@@ -4,7 +4,6 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import "../core"
 import "../services"
 
@@ -13,6 +12,8 @@ PanelWindow {
 
     required property var modelData
 
+    // Локальные aliases делают геометрию ниже читаемой и оставляют все tokens
+    // в одном singleton Metrics.
     readonly property int panelHeight: Metrics.panelHeight
     readonly property int bottomMargin: Metrics.bottomMargin
     readonly property int triggerHeight: Metrics.triggerHeight
@@ -48,29 +49,12 @@ PanelWindow {
         }
     }
 
+    // Одна панель получает уже сгруппированный snapshot из общего сервиса.
+    // Модель окон панели: сервис читает Hyprland IPC, а DockPanel отвечает
+    // только за layout текущего монитора.
     readonly property var groups: {
-        const result = [];
-        const screenName = modelData.name;
-        const toplevels = Hyprland.toplevels.values;
-        for (const tl of toplevels) {
-            const monitor = tl.monitor ?? tl.workspace?.monitor;
-            if (!tl.address || (monitor && monitor.name !== screenName))
-                continue;
-            const key = String(tl.workspace?.name ?? tl.workspace?.id ?? "other");
-            let group = result.find(item => item.key === key);
-            if (!group) {
-                group = {
-                    key: key,
-                    id: tl.workspace?.id ?? 0,
-                    monitor: monitor,
-                    windows: []
-                };
-                result.push(group);
-            }
-            group.windows.push(tl);
-        }
-        result.sort((a, b) => a.id - b.id);
-        return result;
+        DockService.toplevelSnapshot;
+        return DockService.groupsForScreen(modelData.name);
     }
 
     readonly property int totalWindowCount: {
@@ -80,18 +64,8 @@ PanelWindow {
         return count;
     }
 
-    readonly property real uncompressedContentWidth: {
-        if (groups.length === 0)
-            return 0;
-        let width = Math.max(0, groups.length - 1) * (collapsedStep - iconSlot);
-        for (const group of groups) {
-            width += 2 * groupPad + iconSlot + Math.max(0, group.windows.length - 1) * collapsedStep;
-        }
-        const edgeGroups = Math.min(2, groups.length - 1);
-        return width + 2 * activeWorkspacePadding + edgeGroups * activeWorkspaceGap + 2 * hoverGap;
-    }
-
-    readonly property bool denseLayout: uncompressedContentWidth + 2 * innerPad > maxPanelWidth
+    // При переполнении шаг автоматически уменьшается, но боковой hover-buffer
+    // остаётся зарезервированным, чтобы расширение не ломало края Dock.
     readonly property real layoutHoverBuffer: hoverGap
     readonly property real layoutHoverGap: hoverGap
     readonly property real layoutCollapsedStep: {
@@ -123,6 +97,7 @@ PanelWindow {
         return width + 2 * activeWorkspacePadding + edgeGroups * activeWorkspaceGap + 2 * layoutHoverBuffer;
     }
 
+    // Панель занимает не больше 75% ширины монитора, даже при большом числе окон.
     readonly property real panelWidth: Math.min(maxPanelWidth, Math.max(136, contentWidth + 2 * innerPad))
 
     readonly property string activeWorkspaceKey: String(groups[0]?.monitor?.activeWorkspace?.name ?? "")
@@ -135,13 +110,8 @@ PanelWindow {
         return panelWidth / 2;
     }
     readonly property var hoveredToplevel: {
-        const address = win.hoveredAddress;
-        if (!address) return null;
-        for (const group of win.groups) {
-            const toplevel = group.windows.find(tl => String(tl?.address ?? "") === address);
-            if (toplevel) return toplevel;
-        }
-        return null;
+        DockService.toplevelSnapshot;
+        return DockService.findByAddress(win.groups, win.hoveredAddress);
     }
 
     screen: modelData
@@ -165,6 +135,8 @@ PanelWindow {
         height: win.height - y
     }
 
+    // Закрытие сбрасывает адрес до начала движения, чтобы preview не ехал
+    // вниз вместе с капсулой.
     function closePanel() {
         win.open = false;
         win.hoveredAddress = "";
@@ -179,20 +151,7 @@ PanelWindow {
         }
     }
 
-    function focusWindow(tl) {
-        if (tl?.wayland) {
-            tl.wayland.activate();
-            return;
-        }
-        const address = String(tl?.address ?? "").replace(/^0x/, "");
-        if (!/^[0-9a-fA-F]+$/.test(address))
-            return;
-
-        const selector = "address:0x" + address;
-        const command = Hyprland.usingLua ? `hl.dsp.focus({ window = "${selector}" })` : `focuswindow ${selector}`;
-        Hyprland.dispatch(command);
-    }
-
+    // Все операции фокусировки собраны в DockService; DockPanel остаётся UI.
     HoverHandler {
         id: panelHover
         onHoveredChanged: {
@@ -206,6 +165,8 @@ PanelWindow {
         }
     }
 
+    // Preview создаётся только при реальном наведении. После закрытия панели
+    // тяжёлый ScreencopyView уничтожается вместе с PopupWindow.
     LazyLoader {
         id: previewLoader
         active: win.open && win.hoveredToplevel !== null
@@ -218,6 +179,8 @@ PanelWindow {
         }
     }
 
+    // Основная поверхность Dock. Shadow включается только во время показа,
+    // поэтому скрытая капсула не оставляет дорогой эффект на сцене.
     Rectangle {
         id: capsule
         x: win.outerPad
@@ -256,6 +219,8 @@ PanelWindow {
             font.weight: Font.Medium
         }
 
+        // Flickable клипует плотную раскладку и даёт горизонтальное перемещение
+        // только когда количество окон действительно не помещается.
         Flickable {
             x: win.innerPad - win.layoutHoverBuffer
             y: -20
@@ -280,132 +245,47 @@ PanelWindow {
                     id: groupRepeater
                     model: win.groups
 
-                    delegate: Item {
-                        id: groupCapsule
-                        required property var modelData
-                        required property int index
+                    delegate: DockGroup {
+                        groupCount: win.groups.length
+                        hoveredAddress: win.hoveredAddress
+                        activeWorkspaceKey: win.activeWorkspaceKey
+                        iconSlot: win.iconSlot
+                        layoutCollapsedStep: win.layoutCollapsedStep
+                        layoutHoverGap: win.layoutHoverGap
+                        groupPad: win.groupPad
+                        activeWorkspaceGap: win.activeWorkspaceGap
+                        activeWorkspacePadding: win.activeWorkspacePadding
+                        activeOnHoveredLeft: !isCurrent && hoveredIndex === 0
+                                              && index > 0
+                                              && win.groups[index - 1].key === win.activeWorkspaceKey
+                        activeOnHoveredRight: !isCurrent
+                                               && hoveredIndex === modelData.windows.length - 1
+                                               && index < win.groups.length - 1
+                                               && win.groups[index + 1].key === win.activeWorkspaceKey
 
-                        readonly property bool isCurrent: modelData.key === win.activeWorkspaceKey
-                        readonly property int hoveredIndex: modelData.windows.findIndex(tl => String(tl?.address ?? "") === win.hoveredAddress)
-                        readonly property real hoveredIconCenterX: {
-                            const icon = iconRepeater.itemAt(hoveredIndex);
-                            return icon
-                                ? groupsRow.x + groupCapsule.x + icon.x + icon.width / 2
-                                : 0;
+                        onHoverEntered: function(toplevel) {
+                            if (win.panelFullyOpen)
+                                win.hoveredAddress = String(toplevel?.address ?? "");
                         }
-
-                        function pointerAddressUnderCursor() {
-                            for (let i = 0; i < iconRepeater.count; i++) {
-                                const icon = iconRepeater.itemAt(i);
-                                if (icon?.pointerInside)
-                                    return String(icon.toplevel?.address ?? "");
+                        onHoverExited: function(toplevel) {
+                            if (win.hoveredAddress === String(toplevel?.address ?? ""))
+                                win.hoveredAddress = "";
+                        }
+                        onActivated: function(toplevel) {
+                            if (!win.panelFullyOpen)
+                                return;
+                            if (!isCurrent) {
+                                win.open = true;
+                                clickHoldTimer.restart();
                             }
-                            return "";
-                        }
-
-                        // Workspace spacing
-                        property real workspacePadding: isCurrent ? win.activeWorkspacePadding : 0
-                        property real leftWorkspaceGap: (isCurrent && index > 0) ? win.activeWorkspaceGap : 0
-                        property real rightWorkspaceGap: (isCurrent && index < win.groups.length - 1) ? win.activeWorkspaceGap : 0
-
-                        // Hover expansion logic
-                        readonly property bool activeOnHoveredLeft: !isCurrent && hoveredIndex === 0 && index > 0 && win.groups[index - 1].key === win.activeWorkspaceKey
-                        readonly property bool activeOnHoveredRight: !isCurrent && hoveredIndex === modelData.windows.length - 1 && index < win.groups.length - 1 && win.groups[index + 1].key === win.activeWorkspaceKey
-
-                        property real leftHoverExpansion: {
-                            if (hoveredIndex < 0)
-                                return 0;
-                            const shouldExpand = isCurrent ? hoveredIndex > 0 : !(index === 0 && hoveredIndex === 0) || activeOnHoveredLeft || activeOnHoveredRight;
-                            if (!shouldExpand)
-                                return 0;
-                            return Math.max(0, win.layoutHoverGap - (activeOnHoveredLeft ? win.activeWorkspaceGap : 0));
-                        }
-
-                        property real rightHoverExpansion: {
-                            if (hoveredIndex < 0)
-                                return 0;
-                            const isLastWindow = hoveredIndex === modelData.windows.length - 1;
-                            const isLastGroup = index === win.groups.length - 1;
-                            const shouldExpand = isCurrent ? !isLastWindow : !(isLastGroup && isLastWindow) || activeOnHoveredLeft || activeOnHoveredRight;
-                            if (!shouldExpand)
-                                return 0;
-                            return Math.max(0, win.layoutHoverGap - (activeOnHoveredRight ? win.activeWorkspaceGap : 0));
-                        }
-
-                        width: win.groupWidth(modelData.windows.length) + leftHoverExpansion + rightHoverExpansion + leftWorkspaceGap + rightWorkspaceGap + 2 * workspacePadding
-                        height: 50
-                        z: hoveredIndex >= 0 ? 10 : 0
-
-                        Behavior on workspacePadding {
-                            StandardAnimation {}
-                        }
-                        Behavior on leftWorkspaceGap {
-                            StandardAnimation {}
-                        }
-                        Behavior on rightWorkspaceGap {
-                            StandardAnimation {}
-                        }
-                        Behavior on leftHoverExpansion {
-                            StandardAnimation {}
-                        }
-                        Behavior on rightHoverExpansion {
-                            StandardAnimation {}
-                        }
-
-                        Item {
-                            x: 0
-                            y: 2
-                            width: parent.width
-                            height: 46
-
-                            Repeater {
-                                id: iconRepeater
-                                model: groupCapsule.modelData.windows
-
-                                delegate: DockIcon {
-                                    id: dockIcon
-
-                                    iconSlot: win.iconSlot
-                                    isHovered: win.hoveredAddress === String(toplevel?.address ?? "")
-                                    hoverOffsetTarget: {
-                                        if (groupCapsule.hoveredIndex < 0)
-                                            return 0;
-                                        if (index < groupCapsule.hoveredIndex)
-                                            return -win.layoutHoverGap;
-                                        if (index > groupCapsule.hoveredIndex)
-                                            return win.layoutHoverGap;
-                                        return 0;
-                                    }
-                                    baseX: win.groupPad
-                                           + groupCapsule.leftWorkspaceGap
-                                           + groupCapsule.workspacePadding
-                                           + groupCapsule.leftHoverExpansion
-                                           + index * win.layoutCollapsedStep
-
-                                    onHoverEntered: {
-                                        if (win.panelFullyOpen)
-                                            win.hoveredAddress = String(toplevel?.address ?? "");
-                                    }
-                                    onHoverExited: {
-                                        if (isHovered)
-                                            win.hoveredAddress = "";
-                                    }
-                                    onActivated: {
-                                        if (!win.panelFullyOpen)
-                                            return;
-                                        if (!groupCapsule.isCurrent) {
-                                            win.open = true;
-                                            clickHoldTimer.restart();
-                                        }
-                                        win.focusWindow(toplevel);
-                                    }
-                                }
-                            }
+                            DockService.focusWindow(toplevel);
                         }
                     }
                 }
             }
 
+            // Активная workspace-капсула переезжает между группами отдельно от
+            // иконок, что сохраняет плавный переход при смене workspace.
             Rectangle {
                 id: activeOutline
 
@@ -413,7 +293,7 @@ PanelWindow {
                     const key = win.activeWorkspaceKey;
                     for (let i = 0; i < groupRepeater.count; i++) {
                         const item = groupRepeater.itemAt(i);
-                        if (item?.modelData.key === key)
+                        if (item?.groupData.key === key)
                             return item;
                     }
                     return null;
