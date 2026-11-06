@@ -20,7 +20,7 @@ PanelWindow {
     readonly property int collapsedStep: 22
     readonly property int hoverGap: 28
     readonly property int animationDuration: 768
-    readonly property int workspaceSlideDuration: 1155
+    readonly property int workspaceSlideDuration: 512
     readonly property var animationCurve: [0.05, 0.9, 0.1, 1.05, 1, 1]
     readonly property int groupGap: collapsedStep - iconSlot
     readonly property int groupPad: 0
@@ -338,15 +338,7 @@ PanelWindow {
                                         width: 38
                                         height: 38
                                         scale: isHovered ? 1.5 : 1
-                                        transformOrigin: {
-                                            if (!groupCapsule.isCurrent || groupCapsule.modelData.windows.length === 1)
-                                                return Item.Bottom;
-                                            if (index === 0)
-                                                return Item.BottomLeft;
-                                            if (index === groupCapsule.modelData.windows.length - 1)
-                                                return Item.BottomRight;
-                                            return Item.Bottom;
-                                        }
+                                        transformOrigin: Item.Center
 
                                         Behavior on scale {
                                             StandardAnimation {}
@@ -419,26 +411,30 @@ PanelWindow {
                 property real slideProgress: 1
                 property real slideFromX: 0
                 property real slideFromWidth: 0
+                property real verticalExpansion: 0
 
                 readonly property real destinationX: displayedGroup ? groupsRow.x + displayedGroup.x + displayedGroup.leftWorkspaceGap + 2 : 0
                 readonly property real destinationWidth: displayedGroup ? displayedGroup.width - displayedGroup.leftWorkspaceGap - displayedGroup.rightWorkspaceGap - 4 : 0
 
                 onTargetGroupChanged: {
                     const shouldSlide = displayedGroup !== null && targetGroup !== null;
+                    capsuleTransition.stop();
                     slideAnimation.stop();
                     slideFromX = x;
                     slideFromWidth = width;
                     slideProgress = shouldSlide ? 0 : 1;
                     displayedGroup = targetGroup;
                     if (shouldSlide)
-                        slideAnimation.start();
+                        capsuleTransition.start();
+                    else
+                        verticalExpansion = 0;
                 }
 
                 visible: displayedGroup !== null
                 x: slideFromX + (destinationX - slideFromX) * slideProgress
-                y: groupsRow.y + 11
+                y: groupsRow.y + 11 - verticalExpansion / 2
                 width: slideFromWidth + (destinationWidth - slideFromWidth) * slideProgress
-                height: 26
+                height: 26 + verticalExpansion
                 radius: 8
                 color: "transparent"
                 border.width: 0.5
@@ -447,15 +443,41 @@ PanelWindow {
                 border.color: "#e8ffffff"
                 z: 0
 
-                NumberAnimation {
-                    id: slideAnimation
-                    target: activeOutline
-                    property: "slideProgress"
-                    from: 0
-                    to: 1
-                    duration: win.workspaceSlideDuration
-                    easing.type: Easing.BezierSpline
-                    easing.bezierCurve: win.animationCurve
+                SequentialAnimation {
+                    id: capsuleTransition
+
+                    ParallelAnimation {
+                        NumberAnimation {
+                            target: activeOutline
+                            property: "verticalExpansion"
+                            from: 0
+                            to: 20
+                            duration: 512
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: win.animationCurve
+                        }
+
+                        NumberAnimation {
+                            id: slideAnimation
+                            target: activeOutline
+                            property: "slideProgress"
+                            from: 0
+                            to: 1
+                            duration: win.workspaceSlideDuration
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: win.animationCurve
+                        }
+                    }
+
+                    NumberAnimation {
+                        target: activeOutline
+                        property: "verticalExpansion"
+                        from: 20
+                        to: 0
+                        duration: 512
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: win.animationCurve
+                    }
                 }
             }
         }
