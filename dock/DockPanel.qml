@@ -2,42 +2,33 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Effects
-import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import "../core"
+import "../services"
 
 PanelWindow {
     id: win
 
     required property var modelData
 
-    readonly property int panelHeight: 62
-    readonly property int bottomMargin: 10
-    readonly property int triggerHeight: 8
-    readonly property int outerPad: 12
-    readonly property int innerPad: 16
-    readonly property int iconSlot: 46
-    readonly property int collapsedStep: 22
-    readonly property int hoverGap: 28
-    readonly property int animationDuration: 768
-    readonly property int workspaceSlideDuration: 512
-    readonly property var animationCurve: [0.05, 0.9, 0.1, 1.05, 1, 1]
+    readonly property int panelHeight: Metrics.panelHeight
+    readonly property int bottomMargin: Metrics.bottomMargin
+    readonly property int triggerHeight: Metrics.triggerHeight
+    readonly property int outerPad: Metrics.outerPad
+    readonly property int innerPad: Metrics.innerPad
+    readonly property int iconSlot: Metrics.iconSlot
+    readonly property int collapsedStep: Metrics.collapsedStep
+    readonly property int hoverGap: Metrics.hoverGap
     readonly property int groupGap: collapsedStep - iconSlot
-    readonly property int groupPad: 0
-    readonly property int activeWorkspaceGap: 24
-    readonly property int activeWorkspacePadding: 8
+    readonly property int groupPad: Metrics.groupPad
+    readonly property int activeWorkspaceGap: Metrics.activeWorkspaceGap
+    readonly property int activeWorkspacePadding: Metrics.activeWorkspacePadding
     readonly property int maxPanelWidth: Math.floor(modelData.width * 0.65)
 
     property bool open: false
     property string hoveredAddress: ""
-    property int iconRevision: 0
-
-    component StandardAnimation: NumberAnimation {
-        duration: win.animationDuration
-        easing.type: Easing.BezierSpline
-        easing.bezierCurve: win.animationCurve
-    }
 
     readonly property var groups: {
         const result = [];
@@ -82,10 +73,6 @@ PanelWindow {
     readonly property real panelWidth: Math.min(maxPanelWidth, Math.max(136, contentWidth + 2 * innerPad))
 
     readonly property string activeWorkspaceKey: String(groups[0]?.monitor?.activeWorkspace?.name ?? "")
-    readonly property int previewWidth: 440
-    readonly property int previewHeight: 248
-    readonly property int previewTitleHeight: 30
-
     readonly property var hoveredToplevel: {
         const address = win.hoveredAddress;
         if (!address) return null;
@@ -131,16 +118,6 @@ PanelWindow {
         }
     }
 
-    // DesktopEntries watches the application directories itself. Bump a
-    // revision when it changes so existing delegates resolve their icon again
-    // without a timer or periodic polling.
-    Connections {
-        target: DesktopEntries
-        function onApplicationsChanged() {
-            win.iconRevision += 1;
-        }
-    }
-
     function focusWindow(tl) {
         if (tl?.wayland) {
             tl.wayland.activate();
@@ -153,36 +130,6 @@ PanelWindow {
         const selector = "address:0x" + address;
         const command = Hyprland.usingLua ? `hl.dsp.focus({ window = "${selector}" })` : `focuswindow ${selector}`;
         Hyprland.dispatch(command);
-    }
-
-    function iconFor(tl) {
-        const ipc = tl?.lastIpcObject;
-        const names = [String(tl?.wayland?.appId ?? ""), String(ipc?.class ?? ""), String(ipc?.initialClass ?? "")];
-
-        // Try desktop entries first
-        for (const name of names) {
-            if (!name)
-                continue;
-            const entry = DesktopEntries.byId(name) ?? DesktopEntries.heuristicLookup(name);
-            const iconName = String(entry?.icon ?? "");
-            if (!iconName)
-                continue;
-            if (iconName.startsWith("/"))
-                return "file://" + iconName;
-            const path = Quickshell.iconPath(iconName, true);
-            if (path)
-                return path;
-        }
-
-        // Fallback to direct icon lookup
-        for (const name of names) {
-            if (!name)
-                continue;
-            const path = Quickshell.iconPath(name, true);
-            if (path)
-                return path;
-        }
-        return "";
     }
 
     HoverHandler {
@@ -198,107 +145,15 @@ PanelWindow {
         }
     }
 
-    PopupWindow {
-        id: windowPreview
-        anchor.window: win
-        anchor.rect.x: Math.round((win.width - width) / 2)
-        anchor.rect.y: Math.round(capsule.y - height - 12)
-        readonly property real contentAspect: previewImage.hasContent
-            && previewImage.sourceSize.width > 0
-            && previewImage.sourceSize.height > 0
-            ? previewImage.sourceSize.width / previewImage.sourceSize.height
-            : win.previewWidth / win.previewHeight
-        implicitWidth: contentAspect >= win.previewWidth / win.previewHeight
-            ? win.previewWidth
-            : win.previewHeight * contentAspect
-        implicitHeight: implicitWidth / contentAspect + win.previewTitleHeight
-        color: "transparent"
-        visible: win.open && win.hoveredToplevel !== null
+    LazyLoader {
+        id: previewLoader
+        active: win.open && win.hoveredToplevel !== null
 
-        Rectangle {
-            id: previewFrame
-            anchors.fill: parent
-            radius: 12
-            color: "#ff1b2431"
-            clip: true
-
-            Item {
-                id: previewImageArea
-                x: 0
-                y: win.previewTitleHeight
-                width: parent.width
-                height: windowPreview.implicitWidth / windowPreview.contentAspect
-
-                ScreencopyView {
-                    id: previewImage
-                    anchors.fill: parent
-                    captureSource: win.hoveredToplevel?.wayland ?? null
-                    live: true
-                    paintCursor: false
-                    visible: hasContent
-                    z: 1
-
-                    // Round only the image itself. The status bar is a
-                    // separate block above it, so it cannot cover the image.
-                    layer.enabled: true
-                    layer.effect: OpacityMask {
-                        maskSource: Rectangle {
-                            width: previewImage.width
-                            height: previewImage.height
-                            radius: 12
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                id: previewTitleBar
-                x: 0
-                y: 0
-                width: parent.width
-                height: win.previewTitleHeight
-                color: "#e61b2431"
-                z: 2
-                radius: 12
-
-                Image {
-                    id: previewIcon
-                    x: 10
-                    y: (parent.height - height) / 2
-                    width: 16
-                    height: 16
-                    source: {
-                        win.iconRevision;
-                        return win.hoveredToplevel ? win.iconFor(win.hoveredToplevel) : "";
-                    }
-                    cache: true
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                }
-
-                Text {
-                    anchors.left: previewIcon.right
-                    anchors.leftMargin: 8
-                    anchors.right: parent.right
-                    anchors.rightMargin: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: String(win.hoveredToplevel?.title
-                                 ?? win.hoveredToplevel?.lastIpcObject?.title
-                                 ?? "Preview")
-                    color: "#f2ffffff"
-                    font.pixelSize: 12
-                    elide: Text.ElideRight
-                }
-            }
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: 12
-            color: "transparent"
-            border.width: 1
-            border.color: "#66ffffff"
-            z: 3
+        component: WindowPreview {
+            panelWindow: win
+            hoveredToplevel: win.hoveredToplevel
+            panelOpen: win.open
+            capsuleY: capsule.y
         }
     }
 
@@ -308,8 +163,8 @@ PanelWindow {
         y: win.open ? win.height - height - win.bottomMargin : win.height
         width: win.panelWidth
         height: win.panelHeight
-        radius: 8
-        color: Qt.rgba(0 / 255, 0 / 255, 0 / 255, 0.6)
+        radius: Metrics.capsuleRadius
+        color: Metrics.panelColor
 
         // Hyprland applies decoration.shadow to normal windows, but not to
         // layer-shell surfaces. Keep the same shadow visually in the panel.
@@ -430,18 +285,12 @@ PanelWindow {
                             Repeater {
                                 model: groupCapsule.modelData.windows
 
-                                delegate: Item {
-                                    required property var modelData
-                                    required property int index
+                                delegate: DockIcon {
+                                    id: dockIcon
 
-                                    readonly property var toplevel: modelData
-                                    readonly property string appClass: String(toplevel?.lastIpcObject?.class ?? toplevel?.wayland?.appId ?? "")
-                                    readonly property string iconPath: {
-                                        win.iconRevision;
-                                        return win.iconFor(toplevel);
-                                    }
-                                    readonly property bool isHovered: win.hoveredAddress === String(toplevel?.address ?? "")
-                                    readonly property real hoverOffsetTarget: {
+                                    iconSlot: win.iconSlot
+                                    isHovered: win.hoveredAddress === String(toplevel?.address ?? "")
+                                    hoverOffsetTarget: {
                                         if (groupCapsule.hoveredIndex < 0)
                                             return 0;
                                         if (index < groupCapsule.hoveredIndex)
@@ -450,75 +299,23 @@ PanelWindow {
                                             return win.hoverGap;
                                         return 0;
                                     }
+                                    baseX: win.groupPad
+                                           + groupCapsule.leftWorkspaceGap
+                                           + groupCapsule.workspacePadding
+                                           + groupCapsule.leftHoverExpansion
+                                           + index * win.collapsedStep
 
-                                    property real hoverOffset: 0
-
-                                    Behavior on hoverOffset {
-                                        StandardAnimation {}
+                                    onHoverEntered: win.hoveredAddress = String(toplevel?.address ?? "")
+                                    onHoverExited: {
+                                        if (isHovered)
+                                            win.hoveredAddress = "";
                                     }
-
-                                    width: win.iconSlot
-                                    height: 46
-                                    x: win.groupPad + groupCapsule.leftWorkspaceGap + groupCapsule.workspacePadding + groupCapsule.leftHoverExpansion + index * win.collapsedStep + hoverOffset
-                                    z: iconMouse.containsMouse ? 1000 : index
-
-                                    onHoverOffsetTargetChanged: hoverOffset = hoverOffsetTarget
-
-                                    Item {
-                                        x: (parent.width - width) / 2
-                                        y: 3
-                                        width: 38
-                                        height: 38
-                                        scale: isHovered ? 1.5 : 1
-                                        transformOrigin: Item.Center
-
-                                        Behavior on scale {
-                                            StandardAnimation {}
+                                    onActivated: {
+                                        if (!groupCapsule.isCurrent) {
+                                            win.open = true;
+                                            clickHoldTimer.restart();
                                         }
-
-                                        Image {
-                                            id: appImage
-                                            anchors.fill: parent
-                                            source: iconPath
-                                            cache: true
-                                            fillMode: Image.PreserveAspectFit
-                                            smooth: true
-                                            visible: iconPath !== "" && status === Image.Ready
-                                        }
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            visible: !appImage.visible
-                                            radius: 16
-                                            color: "#46586a"
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: appClass.slice(0, 1).toUpperCase() || "?"
-                                                color: "white"
-                                                font.pixelSize: 18
-                                                font.weight: Font.DemiBold
-                                            }
-                                        }
-                                    }
-
-                                    MouseArea {
-                                        id: iconMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: win.hoveredAddress = String(toplevel?.address ?? "")
-                                        onExited: {
-                                            if (isHovered)
-                                                win.hoveredAddress = "";
-                                        }
-                                        onClicked: {
-                                            if (!groupCapsule.isCurrent) {
-                                                win.open = true;
-                                                clickHoldTimer.restart();
-                                            }
-                                            win.focusWindow(toplevel);
-                                        }
+                                        win.focusWindow(toplevel);
                                     }
                                 }
                             }
@@ -568,7 +365,7 @@ PanelWindow {
                 y: groupsRow.y + 11 - verticalExpansion / 2
                 width: slideFromWidth + (destinationWidth - slideFromWidth) * slideProgress
                 height: 26 + verticalExpansion
-                radius: 8
+                radius: Metrics.capsuleRadius
                 color: "transparent"
                 border.width: 0.5
                 border.pixelAligned: false
@@ -580,36 +377,30 @@ PanelWindow {
                     id: capsuleTransition
 
                     ParallelAnimation {
-                        NumberAnimation {
+                        StandardAnimation {
                             target: activeOutline
                             property: "verticalExpansion"
                             from: 0
                             to: 20
-                            duration: 512
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: win.animationCurve
+                            duration: Motion.workspaceSlideDuration
                         }
 
-                        NumberAnimation {
+                        StandardAnimation {
                             id: slideAnimation
                             target: activeOutline
                             property: "slideProgress"
                             from: 0
                             to: 1
-                            duration: win.workspaceSlideDuration
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: win.animationCurve
+                            duration: Motion.workspaceSlideDuration
                         }
                     }
 
-                    NumberAnimation {
+                    StandardAnimation {
                         target: activeOutline
                         property: "verticalExpansion"
                         from: 20
                         to: 0
-                        duration: 512
-                        easing.type: Easing.BezierSpline
-                        easing.bezierCurve: win.animationCurve
+                        duration: Motion.workspaceSlideDuration
                     }
                 }
             }

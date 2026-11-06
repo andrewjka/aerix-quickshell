@@ -1,0 +1,3 @@
+singleton Motion 1.0 Motion.qml
+singleton Metrics 1.0 Metrics.qml
+StandardAnimation 1.0 StandardAnimation.qml
