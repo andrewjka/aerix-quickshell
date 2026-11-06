@@ -80,6 +80,18 @@ PanelWindow {
     readonly property real panelWidth: Math.min(maxPanelWidth, Math.max(136, contentWidth + 2 * innerPad))
 
     readonly property string activeWorkspaceKey: String(groups[0]?.monitor?.activeWorkspace?.name ?? "")
+    readonly property int previewWidth: 320
+    readonly property int previewHeight: 200
+
+    readonly property var hoveredToplevel: {
+        const address = win.hoveredAddress;
+        if (!address) return null;
+        for (const group of win.groups) {
+            const toplevel = group.windows.find(tl => String(tl.address) === address);
+            if (toplevel) return toplevel;
+        }
+        return null;
+    }
 
     screen: modelData
     anchors {
@@ -169,6 +181,35 @@ PanelWindow {
                 win.hoveredAddress = "";
                 if (!clickHoldTimer.running)
                     closePanel();
+            }
+        }
+    }
+
+    PopupWindow {
+        id: windowPreview
+        anchor.window: win
+        anchor.rect.x: Math.round((win.width - width) / 2)
+        anchor.rect.y: Math.round(capsule.y - height - 12)
+        width: win.previewWidth
+        height: win.previewHeight
+        color: "transparent"
+        visible: win.open && win.hoveredToplevel !== null
+
+        Rectangle {
+            id: previewFrame
+            anchors.fill: parent
+            radius: 12
+            color: "#e61b2431"
+            border.width: 1
+            border.color: "#66ffffff"
+            clip: true
+
+            ScreencopyView {
+                anchors.fill: parent
+                captureSource: win.hoveredToplevel?.wayland ?? null
+                live: true
+                paintCursor: false
+                visible: hasContent
             }
         }
     }
