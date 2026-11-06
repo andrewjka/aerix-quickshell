@@ -80,8 +80,8 @@ PanelWindow {
     readonly property real panelWidth: Math.min(maxPanelWidth, Math.max(136, contentWidth + 2 * innerPad))
 
     readonly property string activeWorkspaceKey: String(groups[0]?.monitor?.activeWorkspace?.name ?? "")
-    readonly property int previewWidth: 320
-    readonly property int previewHeight: 200
+    readonly property int previewWidth: 440
+    readonly property int previewHeight: 248
 
     readonly property var hoveredToplevel: {
         const address = win.hoveredAddress;
@@ -199,13 +199,28 @@ PanelWindow {
             id: previewFrame
             anchors.fill: parent
             radius: 12
-            color: "#e61b2431"
+            color: "#ff1b2431"
             border.width: 1
             border.color: "#66ffffff"
             clip: true
 
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowBlur: 0.6
+                shadowColor: Qt.rgba(26 / 255, 26 / 255, 26 / 255, 0.48)
+                shadowOpacity: 1
+                shadowHorizontalOffset: 0
+                shadowVerticalOffset: 0
+            }
+
             ScreencopyView {
-                anchors.fill: parent
+                id: previewImage
+                anchors.centerIn: parent
+                constraintSize.width: previewFrame.width - 16
+                constraintSize.height: previewFrame.height - 16
+                width: implicitWidth
+                height: implicitHeight
                 captureSource: win.hoveredToplevel?.wayland ?? null
                 live: true
                 paintCursor: false
