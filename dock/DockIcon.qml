@@ -16,6 +16,7 @@ Item {
     property real hoverOffset: 0
 
     readonly property var toplevel: modelData
+    readonly property bool pointerInside: iconMouse.containsMouse
     readonly property string appClass: String(toplevel?.lastIpcObject?.class
                                                ?? toplevel?.wayland?.appId
                                                ?? "")
@@ -82,7 +83,10 @@ Item {
 
     MouseArea {
         id: iconMouse
-        anchors.fill: parent
+        x: -Metrics.hoverPadding
+        y: -Metrics.hoverPadding
+        width: parent.width + 2 * Metrics.hoverPadding
+        height: parent.height + 2 * Metrics.hoverPadding
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
 

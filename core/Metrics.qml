@@ -11,6 +11,7 @@ QtObject {
     readonly property int iconSlot: 46
     readonly property int collapsedStep: 22
     readonly property int hoverGap: 28
+    readonly property int hoverPadding: 2
     readonly property int groupPad: 0
     readonly property int activeWorkspaceGap: 24
     readonly property int activeWorkspacePadding: 8

@@ -21,14 +21,32 @@ PanelWindow {
     readonly property int iconSlot: Metrics.iconSlot
     readonly property int collapsedStep: Metrics.collapsedStep
     readonly property int hoverGap: Metrics.hoverGap
-    readonly property int groupGap: collapsedStep - iconSlot
     readonly property int groupPad: Metrics.groupPad
     readonly property int activeWorkspaceGap: Metrics.activeWorkspaceGap
     readonly property int activeWorkspacePadding: Metrics.activeWorkspacePadding
-    readonly property int maxPanelWidth: Math.floor(modelData.width * 0.65)
+    readonly property int maxPanelWidth: Math.floor(modelData.width * 0.75)
 
     property bool open: false
     property string hoveredAddress: ""
+
+    readonly property real openY: height - capsule.height - bottomMargin
+    readonly property bool panelFullyOpen: open && Math.abs(capsule.y - openY) < 0.5
+
+    onPanelFullyOpenChanged: {
+        if (!panelFullyOpen) {
+            hoveredAddress = "";
+            return;
+        }
+
+        for (let i = 0; i < groupRepeater.count; i++) {
+            const group = groupRepeater.itemAt(i);
+            const address = group?.pointerAddressUnderCursor() ?? "";
+            if (address) {
+                hoveredAddress = address;
+                return;
+            }
+        }
+    }
 
     readonly property var groups: {
         const result = [];
@@ -55,19 +73,54 @@ PanelWindow {
         return result;
     }
 
+    readonly property int totalWindowCount: {
+        let count = 0;
+        for (const group of groups)
+            count += group.windows.length;
+        return count;
+    }
+
+    readonly property real uncompressedContentWidth: {
+        if (groups.length === 0)
+            return 0;
+        let width = Math.max(0, groups.length - 1) * (collapsedStep - iconSlot);
+        for (const group of groups) {
+            width += 2 * groupPad + iconSlot + Math.max(0, group.windows.length - 1) * collapsedStep;
+        }
+        const edgeGroups = Math.min(2, groups.length - 1);
+        return width + 2 * activeWorkspacePadding + edgeGroups * activeWorkspaceGap + 2 * hoverGap;
+    }
+
+    readonly property bool denseLayout: uncompressedContentWidth + 2 * innerPad > maxPanelWidth
+    readonly property real layoutHoverBuffer: hoverGap
+    readonly property real layoutHoverGap: hoverGap
+    readonly property real layoutCollapsedStep: {
+        if (groups.length === 0 || totalWindowCount <= 1)
+            return collapsedStep;
+
+        const fixedWidth = 2 * groupPad * groups.length
+                           + iconSlot
+                           + 2 * activeWorkspacePadding
+                           + Math.min(2, groups.length - 1) * activeWorkspaceGap
+                           + 2 * layoutHoverBuffer;
+        const available = maxPanelWidth - 2 * innerPad - fixedWidth;
+        const slots = totalWindowCount - 1;
+        return Math.max(8, Math.min(collapsedStep, available / slots));
+    }
+    readonly property real groupGap: layoutCollapsedStep - iconSlot
+
     function groupWidth(count) {
-        return 2 * groupPad + iconSlot + Math.max(0, count - 1) * collapsedStep;
+        return 2 * groupPad + iconSlot + Math.max(0, count - 1) * layoutCollapsedStep;
     }
 
     readonly property real contentWidth: {
         if (groups.length === 0)
             return 0;
         let width = Math.max(0, groups.length - 1) * groupGap;
-        for (const group of groups) {
+        for (const group of groups)
             width += groupWidth(group.windows.length);
-        }
         const edgeGroups = Math.min(2, groups.length - 1);
-        return width + 2 * activeWorkspacePadding + edgeGroups * activeWorkspaceGap + 2 * hoverGap;
+        return width + 2 * activeWorkspacePadding + edgeGroups * activeWorkspaceGap + 2 * layoutHoverBuffer;
     }
 
     readonly property real panelWidth: Math.min(maxPanelWidth, Math.max(136, contentWidth + 2 * innerPad))
@@ -204,20 +257,20 @@ PanelWindow {
         }
 
         Flickable {
-            x: win.innerPad - win.hoverGap
+            x: win.innerPad - win.layoutHoverBuffer
             y: -20
-            width: parent.width - 2 * win.innerPad + 2 * win.hoverGap
+            width: parent.width - 2 * win.innerPad + 2 * win.layoutHoverBuffer
             height: parent.height + 20
             visible: win.groups.length > 0
             clip: true
-            contentWidth: groupsRow.width + 2 * win.hoverGap
+            contentWidth: groupsRow.width + 2 * win.layoutHoverBuffer
             contentHeight: height
             flickableDirection: Flickable.HorizontalFlick
             boundsBehavior: Flickable.StopAtBounds
 
             Row {
                 id: groupsRow
-                x: win.hoverGap + Math.max(0, (capsule.width - 2 * win.innerPad - width) / 2)
+                x: win.layoutHoverBuffer + Math.max(0, (capsule.width - 2 * win.innerPad - width) / 2)
                 y: 26
                 spacing: win.groupGap
                 height: 50
@@ -241,6 +294,15 @@ PanelWindow {
                                 : 0;
                         }
 
+                        function pointerAddressUnderCursor() {
+                            for (let i = 0; i < iconRepeater.count; i++) {
+                                const icon = iconRepeater.itemAt(i);
+                                if (icon?.pointerInside)
+                                    return String(icon.toplevel?.address ?? "");
+                            }
+                            return "";
+                        }
+
                         // Workspace spacing
                         property real workspacePadding: isCurrent ? win.activeWorkspacePadding : 0
                         property real leftWorkspaceGap: (isCurrent && index > 0) ? win.activeWorkspaceGap : 0
@@ -256,7 +318,7 @@ PanelWindow {
                             const shouldExpand = isCurrent ? hoveredIndex > 0 : !(index === 0 && hoveredIndex === 0) || activeOnHoveredLeft || activeOnHoveredRight;
                             if (!shouldExpand)
                                 return 0;
-                            return Math.max(0, win.hoverGap - (activeOnHoveredLeft ? win.activeWorkspaceGap : 0));
+                            return Math.max(0, win.layoutHoverGap - (activeOnHoveredLeft ? win.activeWorkspaceGap : 0));
                         }
 
                         property real rightHoverExpansion: {
@@ -267,7 +329,7 @@ PanelWindow {
                             const shouldExpand = isCurrent ? !isLastWindow : !(isLastGroup && isLastWindow) || activeOnHoveredLeft || activeOnHoveredRight;
                             if (!shouldExpand)
                                 return 0;
-                            return Math.max(0, win.hoverGap - (activeOnHoveredRight ? win.activeWorkspaceGap : 0));
+                            return Math.max(0, win.layoutHoverGap - (activeOnHoveredRight ? win.activeWorkspaceGap : 0));
                         }
 
                         width: win.groupWidth(modelData.windows.length) + leftHoverExpansion + rightHoverExpansion + leftWorkspaceGap + rightWorkspaceGap + 2 * workspacePadding
@@ -309,23 +371,28 @@ PanelWindow {
                                         if (groupCapsule.hoveredIndex < 0)
                                             return 0;
                                         if (index < groupCapsule.hoveredIndex)
-                                            return -win.hoverGap;
+                                            return -win.layoutHoverGap;
                                         if (index > groupCapsule.hoveredIndex)
-                                            return win.hoverGap;
+                                            return win.layoutHoverGap;
                                         return 0;
                                     }
                                     baseX: win.groupPad
                                            + groupCapsule.leftWorkspaceGap
                                            + groupCapsule.workspacePadding
                                            + groupCapsule.leftHoverExpansion
-                                           + index * win.collapsedStep
+                                           + index * win.layoutCollapsedStep
 
-                                    onHoverEntered: win.hoveredAddress = String(toplevel?.address ?? "")
+                                    onHoverEntered: {
+                                        if (win.panelFullyOpen)
+                                            win.hoveredAddress = String(toplevel?.address ?? "");
+                                    }
                                     onHoverExited: {
                                         if (isHovered)
                                             win.hoveredAddress = "";
                                     }
                                     onActivated: {
+                                        if (!win.panelFullyOpen)
+                                            return;
                                         if (!groupCapsule.isCurrent) {
                                             win.open = true;
                                             clickHoldTimer.restart();
