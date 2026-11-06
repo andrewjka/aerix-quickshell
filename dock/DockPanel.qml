@@ -73,6 +73,14 @@ PanelWindow {
     readonly property real panelWidth: Math.min(maxPanelWidth, Math.max(136, contentWidth + 2 * innerPad))
 
     readonly property string activeWorkspaceKey: String(groups[0]?.monitor?.activeWorkspace?.name ?? "")
+    readonly property real hoveredIconCenterX: {
+        for (let i = 0; i < groupRepeater.count; i++) {
+            const group = groupRepeater.itemAt(i);
+            if (group && group.hoveredIndex >= 0)
+                return group.hoveredIconCenterX;
+        }
+        return panelWidth / 2;
+    }
     readonly property var hoveredToplevel: {
         const address = win.hoveredAddress;
         if (!address) return null;
@@ -226,6 +234,12 @@ PanelWindow {
 
                         readonly property bool isCurrent: modelData.key === win.activeWorkspaceKey
                         readonly property int hoveredIndex: modelData.windows.findIndex(tl => String(tl?.address ?? "") === win.hoveredAddress)
+                        readonly property real hoveredIconCenterX: {
+                            const icon = iconRepeater.itemAt(hoveredIndex);
+                            return icon
+                                ? groupsRow.x + groupCapsule.x + icon.x + icon.width / 2
+                                : 0;
+                        }
 
                         // Workspace spacing
                         property real workspacePadding: isCurrent ? win.activeWorkspacePadding : 0
@@ -283,6 +297,7 @@ PanelWindow {
                             height: 46
 
                             Repeater {
+                                id: iconRepeater
                                 model: groupCapsule.modelData.windows
 
                                 delegate: DockIcon {

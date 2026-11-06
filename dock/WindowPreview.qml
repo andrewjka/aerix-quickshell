@@ -14,6 +14,7 @@ PopupWindow {
     required property var hoveredToplevel
     required property bool panelOpen
     required property real capsuleY
+    property var displayedToplevel: null
 
     readonly property real contentAspect: previewImage.hasContent
         && previewImage.sourceSize.width > 0
@@ -22,7 +23,10 @@ PopupWindow {
         : Metrics.previewWidth / Metrics.previewHeight
 
     anchor.window: panelWindow
-    anchor.rect.x: panelWindow ? Math.round((panelWindow.width - width) / 2) : 0
+    anchor.rect.x: panelWindow
+        ? Math.round(Math.max(8, Math.min(panelWindow.width - width - 8,
+                                          panelWindow.hoveredIconCenterX - width / 2)))
+        : 0
     anchor.rect.y: Math.round(capsuleY - height - 12)
     implicitWidth: contentAspect >= Metrics.previewWidth / Metrics.previewHeight
         ? Metrics.previewWidth
@@ -31,12 +35,51 @@ PopupWindow {
     color: "transparent"
     visible: panelOpen && hoveredToplevel !== null
 
+    onHoveredToplevelChanged: {
+        if (!hoveredToplevel || !previewFrame)
+            return;
+
+        displayedToplevel = hoveredToplevel;
+        previewFrame.scale = 0.12;
+        previewFrame.opacity = 0;
+        revealAnimation.restart();
+    }
+
+    Component.onCompleted: {
+        displayedToplevel = hoveredToplevel;
+        if (hoveredToplevel) {
+            previewFrame.scale = 0.12;
+            previewFrame.opacity = 0;
+            revealAnimation.restart();
+        }
+    }
+
+    ParallelAnimation {
+        id: revealAnimation
+
+        StandardAnimation {
+            target: previewFrame
+            property: "scale"
+            from: 0.12
+            to: 1
+            duration: 512
+        }
+        StandardAnimation {
+            target: previewFrame
+            property: "opacity"
+            from: 0
+            to: 1
+            duration: 512
+        }
+    }
+
     Rectangle {
         id: previewFrame
         anchors.fill: parent
         radius: Metrics.previewRadius
         color: "#ff1b2431"
         clip: true
+        transformOrigin: Item.Bottom
 
         Item {
             id: previewImageArea
@@ -48,7 +91,7 @@ PopupWindow {
             ScreencopyView {
                 id: previewImage
                 anchors.fill: parent
-                captureSource: preview.hoveredToplevel?.wayland ?? null
+                captureSource: preview.displayedToplevel?.wayland ?? null
                 // Один кадр вместо постоянно работающего видеопотока.
                 live: false
                 paintCursor: false
@@ -93,7 +136,7 @@ PopupWindow {
                 height: 16
                 source: {
                     IconService.revision;
-                    return preview.hoveredToplevel ? IconService.resolve(preview.hoveredToplevel) : "";
+                    return preview.displayedToplevel ? IconService.resolve(preview.displayedToplevel) : "";
                 }
                 cache: true
                 sourceSize: Qt.size(32, 32)
@@ -107,8 +150,8 @@ PopupWindow {
                 anchors.right: parent.right
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
-                text: String(preview.hoveredToplevel?.title
-                             ?? preview.hoveredToplevel?.lastIpcObject?.title
+                text: String(preview.displayedToplevel?.title
+                             ?? preview.displayedToplevel?.lastIpcObject?.title
                              ?? "Preview")
                 color: "#f2ffffff"
                 font.pixelSize: 12
@@ -118,11 +161,15 @@ PopupWindow {
     }
 
     Rectangle {
+        id: previewBorder
         anchors.fill: parent
         radius: Metrics.previewRadius
         color: "transparent"
         border.width: 1
         border.color: "#66ffffff"
         z: 3
+        scale: previewFrame.scale
+        opacity: previewFrame.opacity
+        transformOrigin: Item.Bottom
     }
 }
