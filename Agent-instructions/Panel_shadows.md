@@ -1,7 +1,8 @@
 # Внешняя тень прозрачных панелей
 
 `core/PanelShadow.qml` использует штатные `QtQuick.Effects.RectangularShadow`
-и `Qt5Compat.GraphicalEffects.OpacityMask` с `invert: true`. Собственных
+и `Qt5Compat.GraphicalEffects.OpacityMask` с инвертированной маской капсулы.
+Собственных
 шейдеров и отдельного шага сборки нет. Нужен Qt >= 6.11 для раздельных
 радиусов углов `RectangularShadow` (локально установлен Qt 6.12).
 

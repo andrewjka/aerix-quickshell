@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Effects
 import Qt5Compat.GraphicalEffects
 
-// RectangularShadow рисует силуэт, OpacityMask вырезает его середину:
-// тень не окрашивает полупрозрачную заливку панели. Нужен Qt >= 6.11.
+// RectangularShadow рисует силуэт, а OpacityMask вырезает его середину.
+// Поэтому тень не окрашивает полупрозрачную заливку панели.
 Item {
     id: shadow
     required property Rectangle sourceItem
@@ -33,8 +33,9 @@ Item {
         }
     }
 
-    // Маска и источник скрыты от сцены; OpacityMask использует их текстуры.
-    // Оба буфера включают одинаковый запас вокруг силуэта панели.
+    // Маска — непрозрачная форма капсулы; инверсия в OpacityMask вырезает
+    // её из тени. Маска и источник скрыты от сцены. Оба буфера включают
+    // одинаковый запас вокруг силуэта панели.
     Item {
         id: panelMask
         anchors.fill: shadowSource
