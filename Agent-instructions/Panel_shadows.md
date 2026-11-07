@@ -17,9 +17,13 @@
 `Metrics.panelShadowRadius` (свойство `blur` у `RectangularShadow`). Форма
 затухания определяется Qt и не идентична Hyprland render_power.
 
-Тени вынесены в отдельные layer-surface: `bar/StatusBarShadow.qml` и
-`dock/DockShadow.qml`. Видимые `StatusBar` и `DockPanel` содержат только
-интерфейс и получают HyprGlass как обычно. В локальном
+Общая механика input-прозрачной layer-surface находится в
+`core/PanelShadowWindow.qml`. Она получает namespace и прямоугольник-источник,
+создаёт `PanelShadow` и отключает input/focus/exclusive zone. `bar/StatusBarShadow.qml`
+и `dock/DockShadow.qml` остаются небольшими адаптерами со своей геометрией:
+Bar закреплён сверху, а Dock анимирует ширину и вертикальное положение.
+Видимые `StatusBar` и `DockPanel` содержат только интерфейс и получают
+HyprGlass как обычно. В локальном
 `~/.config/hypr/plugins/hyprglass.lua` namespace `aerix:status-bar-shadow` и
 `aerix:dock-shadow` исключены из HyprGlass, поэтому он не размывает уже
 нарисованную Qt-тень. Shadow-окна не имеют input region и не резервируют

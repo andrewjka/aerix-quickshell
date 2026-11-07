@@ -199,9 +199,12 @@ PanelWindow {
                 id: workspaceIndicator
                 groupsRow: workspaceRow
                 targetGroup: {
+                    // Binding должен дождаться создания Repeater-делегатов:
+                    // itemAt() сам по себе не сообщает о появлении элемента.
+                    const groupCount = groupRepeater.count;
                     const activeIndex = panel.groups.findIndex(group =>
                         group.key === panel.activeWorkspaceKey);
-                    return activeIndex >= 0
+                    return activeIndex >= 0 && activeIndex < groupCount
                         ? groupRepeater.itemAt(activeIndex) as DockGroup
                         : null;
                 }

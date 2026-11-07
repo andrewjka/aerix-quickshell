@@ -1,14 +1,16 @@
 import QtQuick
-import Quickshell
-import Quickshell.Wayland
 import "../core"
 import "../services"
 
-// Отдельный input-прозрачный layer-surface: HyprGlass его не обрабатывает.
-PanelWindow {
+// У Dock своя анимация и ширина, общая layer-surface живёт в PanelShadowWindow.
+PanelShadowWindow {
     id: shadowWindow
 
     required property var modelData
+    targetScreen: modelData
+    shadowSource: shadowSurface
+    shadowNamespace: "aerix:dock-shadow"
+    shadowVisible: shadowSurface.y < shadowWindow.height
 
     readonly property bool isOpen: DockPresentation.isOpen(modelData.name)
     readonly property int renderMargin: Math.max(Metrics.panelHorizontalMargin,
@@ -22,28 +24,10 @@ PanelWindow {
         targetScreen: shadowWindow.modelData
     }
 
-    screen: modelData
     anchors.bottom: true
     implicitWidth: Math.ceil(panelWidth) + 2 * renderMargin
     implicitHeight: Math.max(92, Metrics.panelHeight + Metrics.bottomMargin
         + Math.ceil(Metrics.panelShadowRadius) + 1)
-    color: "transparent"
-    focusable: false
-    exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-    WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.namespace: "aerix:dock-shadow"
-
-    // Тень не участвует в hit testing: события получает только DockPanel.
-    mask: Region {
-        width: 0
-        height: 0
-    }
-
-    PanelShadow {
-        sourceItem: shadowSurface
-        visible: shadowSurface.y < shadowWindow.height
-    }
 
     Rectangle {
         id: shadowSurface

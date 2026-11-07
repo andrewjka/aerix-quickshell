@@ -9,7 +9,8 @@ QtObject {
     readonly property int bottomMargin: 2 * spacing
     readonly property int triggerHeight: 8
     readonly property int panelHorizontalMargin: 12
-    readonly property int panelPadding: 16
+    // Горизонтальный отступ содержимого Dock следует общей сетке интерфейса.
+    readonly property int panelPadding: spacing
     readonly property int iconSlotSize: 46
     readonly property int iconSize: 44
     readonly property int iconSpacing: 22
