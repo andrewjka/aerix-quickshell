@@ -199,12 +199,11 @@ PanelWindow {
                 id: workspaceIndicator
                 groupsRow: workspaceRow
                 targetGroup: {
-                    for (let i = 0; i < groupRepeater.count; i++) {
-                        const group = groupRepeater.itemAt(i) as DockGroup;
-                        if (group?.isActiveWorkspace)
-                            return group;
-                    }
-                    return null;
+                    const activeIndex = panel.groups.findIndex(group =>
+                        group.key === panel.activeWorkspaceKey);
+                    return activeIndex >= 0
+                        ? groupRepeater.itemAt(activeIndex) as DockGroup
+                        : null;
                 }
             }
 
