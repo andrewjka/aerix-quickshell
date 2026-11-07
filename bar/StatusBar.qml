@@ -13,12 +13,8 @@ PanelWindow {
         left: true
         right: true
     }
-    margins {
-        top: 0
-        left: Metrics.statusBarHorizontalMargin
-        right: Metrics.statusBarHorizontalMargin
-    }
-    implicitHeight: Metrics.statusBarHeight
+    // Прозрачная часть буфера нужна лишь для отрисовки внешней тени.
+    implicitHeight: Metrics.statusBarHeight + Math.ceil(Metrics.panelShadowRadius) + 1
     color: "transparent"
     // При наведении забираем клавиатурный фокус у приложения; после ухода
     // освобождаем его. focusable: true задаёт лишь OnDemand и не гарантирует
@@ -28,12 +24,22 @@ PanelWindow {
                                 : WlrKeyboardFocus.None
 
     // Постоянная панель резервирует свою высоту, чтобы окна начинались под ней.
-    exclusionMode: ExclusionMode.Auto
+    exclusiveZone: Metrics.statusBarHeight
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aerix:status-bar"
 
-    HoverHandler {
-        id: statusBarHover
+    // HyprGlass обрабатывает только поверхность панели, а внешняя Qt-тень
+    // остаётся частью обычной композиции layer-surface.
+    BackgroundEffect.blurRegion: Region {
+        item: surface
+        topLeftRadius: surface.topLeftRadius
+        topRightRadius: surface.topRightRadius
+        bottomLeftRadius: surface.bottomLeftRadius
+        bottomRightRadius: surface.bottomRightRadius
+    }
+
+    mask: Region {
+        item: surface
     }
 
     // Верхние углы примыкают к границе экрана; скруглены только нижние.
@@ -44,25 +50,19 @@ PanelWindow {
 
     Rectangle {
         id: surface
-        anchors.fill: parent
+        x: Metrics.statusBarHorizontalMargin
+        width: parent.width - 2 * Metrics.statusBarHorizontalMargin
+        height: Metrics.statusBarHeight
         topLeftRadius: 0
         topRightRadius: 0
         bottomLeftRadius: Metrics.panelRadius
         bottomRightRadius: Metrics.panelRadius
         color: Metrics.panelColor
-        border.width: Metrics.panelBorderWidth
-        border.color: statusBarHover.hovered
-                      ? Metrics.panelBorderColor
-                      : Metrics.panelInactiveBorderColor
-
-        Behavior on border.color {
-            ColorAnimation {
-                duration: Motion.defaultDuration
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.standardCurve
-            }
-        }
         antialiasing: true
+
+        HoverHandler {
+            id: statusBarHover
+        }
 
         // Независимое центрирование оставляет часы в центре экрана, когда
         // слева и справа появятся группы разной ширины.

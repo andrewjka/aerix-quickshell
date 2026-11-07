@@ -17,6 +17,9 @@ PanelWindow {
     readonly property real openY: height - Metrics.panelHeight - Metrics.bottomMargin
     readonly property bool interactionEnabled: isOpen && Math.abs(panelSurface.y - openY) < 0.5
     readonly property int maxPanelWidth: Math.floor(modelData.width * 0.75)
+    // Только размер прозрачного буфера; положение панели и input region прежние.
+    readonly property int renderMargin: Math.max(Metrics.panelHorizontalMargin,
+        Math.ceil(Metrics.panelShadowRadius) + 1)
 
     // Общий сервис читает Hyprland, панель рассчитывает раскладку своего экрана.
     readonly property var groups: DockService.groupsForScreen(modelData.name)
@@ -48,19 +51,32 @@ PanelWindow {
 
     screen: modelData
     anchors.bottom: true
-    implicitWidth: Math.ceil(panelSurface.width) + 2 * Metrics.panelHorizontalMargin
-    implicitHeight: 92
+    implicitWidth: Math.ceil(panelSurface.width) + 2 * renderMargin
+    implicitHeight: Math.max(92, Metrics.panelHeight + Metrics.bottomMargin
+        + Math.ceil(Metrics.panelShadowRadius) + 1)
     color: "transparent"
     focusable: false
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aerix:dock-panel"
 
+    // Протокол ext-background-effect ограничивает glass прямоугольником Dock;
+    // внешняя Qt-тень не попадает в область размытия HyprGlass.
+    BackgroundEffect.blurRegion: Region {
+        item: panelSurface
+        topLeftRadius: panelSurface.topLeftRadius
+        topRightRadius: panelSurface.topRightRadius
+        bottomLeftRadius: panelSurface.bottomLeftRadius
+        bottomRightRadius: panelSurface.bottomRightRadius
+    }
+
     // Область ввода следует за выезжающей панелью. В скрытом состоянии
     // остаётся только невидимая полоса активации у нижнего края экрана.
     mask: Region {
+        x: panel.renderMargin - Metrics.panelHorizontalMargin
         y: Math.min(panel.height - Metrics.triggerHeight, Math.max(0, panelSurface.y - Metrics.triggerHeight))
-        width: panel.width
+        width: Math.ceil(panelSurface.width) + 2 * Metrics.panelHorizontalMargin
         height: panel.height - y
     }
 
@@ -130,28 +146,17 @@ PanelWindow {
     // Поверхность Dock и анимации её появления и изменения ширины.
     PanelShadow {
         sourceItem: panelSurface
+        visible: panelSurface.y < panel.height
     }
 
     Rectangle {
         id: panelSurface
-        x: Metrics.panelHorizontalMargin
+        x: panel.renderMargin
         y: panel.isOpen ? panel.openY : panel.height
         width: panel.panelWidth
         height: Metrics.panelHeight
         radius: Metrics.panelRadius
         color: Metrics.panelColor
-        border.width: Metrics.panelBorderWidth
-        border.color: panelHover.hovered
-                      ? Metrics.panelBorderColor
-                      : Metrics.panelInactiveBorderColor
-
-        Behavior on border.color {
-            ColorAnimation {
-                duration: Motion.defaultDuration
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.standardCurve
-            }
-        }
 
         Behavior on y {
             StandardAnimation {}
@@ -159,6 +164,15 @@ PanelWindow {
         Behavior on width {
             StandardAnimation {}
         }
+    }
+
+    // Контент следует за анимированной поверхностью отдельным слоем.
+    Item {
+        id: panelContent
+        x: panelSurface.x
+        y: panelSurface.y
+        width: panelSurface.width
+        height: panelSurface.height
 
         Text {
             anchors.centerIn: parent

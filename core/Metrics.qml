@@ -38,11 +38,7 @@ QtObject {
     readonly property real previewRadius: 12
     // Цвет хранится как var: QtQml не предоставляет отдельный тип color.
     readonly property var panelColor: Qt.rgba(1, 1, 1, 0.08)
-    readonly property int panelBorderWidth: 1
-    readonly property var panelBorderColor: Qt.rgba(208, 208, 208, 0.32)
-    readonly property var panelInactiveBorderColor: Qt.rgba(74 / 255, 74 / 255, 74 / 255, 0.16)
     // Единая тень поверхностей Dock и status-bar по параметрам Hyprland.
-    readonly property int panelShadowRadius: 8
-    readonly property int panelShadowSamples: 17
+    readonly property int panelShadowRadius: 4
     readonly property var panelShadowColor: Qt.rgba(26 / 255, 26 / 255, 26 / 255, 0.48)
 }

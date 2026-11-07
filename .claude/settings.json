@@ -1,6 +1,0 @@
-{
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://ai.starimg.ru",
-    "ANTHROPIC_AUTH_TOKEN": "sk-star-aaec29086599f512f23d1649d2e5140d99577e1a42b83672fc3304d10c8dd61b"
-  }
-}
