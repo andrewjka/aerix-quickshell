@@ -11,33 +11,25 @@ PanelWindow {
 
     required property var modelData
 
-    property bool isOpen: false
     property string hoveredAddress: ""
 
     readonly property real openY: height - Metrics.panelHeight - Metrics.bottomMargin
+    readonly property bool isOpen: DockPresentation.isOpen(modelData.name)
     readonly property bool interactionEnabled: isOpen && Math.abs(panelSurface.y - openY) < 0.5
-    readonly property int maxPanelWidth: Math.floor(modelData.width * 0.75)
-    // Только размер прозрачного буфера; положение панели и input region прежние.
-    readonly property int renderMargin: Math.max(Metrics.panelHorizontalMargin,
-        Math.ceil(Metrics.panelShadowRadius) + 1)
 
-    // Общий сервис читает Hyprland, панель рассчитывает раскладку своего экрана.
-    readonly property var groups: DockService.groupsForScreen(modelData.name)
-    readonly property string activeWorkspaceKey: String(
-        DockService.monitorForScreen(modelData.name)?.activeWorkspace?.name ?? "")
-    readonly property int windowCount: groups.reduce((count, group) => count + group.windows.length, 0)
+    DockLayout {
+        id: layout
+        targetScreen: panel.modelData
+    }
 
-    // Неподвижная часть ширины: первый слот, отступы активного workspace и
-    // боковой запас для hover. Остальные окна добавляют только шаг раскладки.
-    readonly property real fixedContentWidth: groups.length === 0 ? 0
-        : Metrics.iconSlotSize + 2 * Metrics.activeWorkspacePadding
-          + Math.min(2, groups.length - 1) * Metrics.activeWorkspaceGap
-          + 2 * Metrics.hoverSpacing
-    readonly property real iconSpacing: windowCount <= 1 ? Metrics.iconSpacing
-        : Math.max(8, Math.min(Metrics.iconSpacing,
-            (maxPanelWidth - 2 * Metrics.panelPadding - fixedContentWidth) / (windowCount - 1)))
-    readonly property real contentWidth: fixedContentWidth + Math.max(0, windowCount - 1) * iconSpacing
-    readonly property real panelWidth: Math.min(maxPanelWidth, Math.max(136, contentWidth + 2 * Metrics.panelPadding))
+    // Сохраняем интерфейс свойств панели для её делегатов.
+    readonly property var groups: layout.groups
+    readonly property string activeWorkspaceKey: layout.activeWorkspaceKey
+    readonly property real iconSpacing: layout.iconSpacing
+    readonly property real panelWidth: layout.panelWidth
+
+    onPanelWidthChanged: DockPresentation.setWidth(modelData.name, panelWidth)
+    Component.onCompleted: DockPresentation.setWidth(modelData.name, panelWidth)
 
     // Иконка уже содержит окно: дополнительный поиск по всем группам не нужен.
     readonly property DockIcon hoveredIcon: {
@@ -51,9 +43,8 @@ PanelWindow {
 
     screen: modelData
     anchors.bottom: true
-    implicitWidth: Math.ceil(panelSurface.width) + 2 * renderMargin
-    implicitHeight: Math.max(92, Metrics.panelHeight + Metrics.bottomMargin
-        + Math.ceil(Metrics.panelShadowRadius) + 1)
+    implicitWidth: Math.ceil(panelSurface.width) + 2 * Metrics.panelHorizontalMargin
+    implicitHeight: 92
     color: "transparent"
     focusable: false
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
@@ -61,29 +52,18 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aerix:dock-panel"
 
-    // Протокол ext-background-effect ограничивает glass прямоугольником Dock;
-    // внешняя Qt-тень не попадает в область размытия HyprGlass.
-    BackgroundEffect.blurRegion: Region {
-        item: panelSurface
-        topLeftRadius: panelSurface.topLeftRadius
-        topRightRadius: panelSurface.topRightRadius
-        bottomLeftRadius: panelSurface.bottomLeftRadius
-        bottomRightRadius: panelSurface.bottomRightRadius
-    }
-
     // Область ввода следует за выезжающей панелью. В скрытом состоянии
     // остаётся только невидимая полоса активации у нижнего края экрана.
     mask: Region {
-        x: panel.renderMargin - Metrics.panelHorizontalMargin
         y: Math.min(panel.height - Metrics.triggerHeight, Math.max(0, panelSurface.y - Metrics.triggerHeight))
-        width: Math.ceil(panelSurface.width) + 2 * Metrics.panelHorizontalMargin
+        width: panel.width
         height: panel.height - y
     }
 
     /** Сбрасывает preview до начала закрывающей анимации панели. */
     function closePanel() {
         hoveredAddress = "";
-        isOpen = false;
+        DockPresentation.setOpen(modelData.name, false);
     }
 
     /** Восстанавливает hover, если курсор попал на иконку ещё во время выезда. */
@@ -122,7 +102,7 @@ PanelWindow {
         id: panelHover
         onHoveredChanged: {
             if (hovered) {
-                panel.isOpen = true;
+                DockPresentation.setOpen(panel.modelData.name, true);
             } else {
                 panel.hoveredAddress = "";
                 if (!closeDelay.running)
@@ -144,14 +124,9 @@ PanelWindow {
     }
 
     // Поверхность Dock и анимации её появления и изменения ширины.
-    PanelShadow {
-        sourceItem: panelSurface
-        visible: panelSurface.y < panel.height
-    }
-
     Rectangle {
         id: panelSurface
-        x: panel.renderMargin
+        x: Metrics.panelHorizontalMargin
         y: panel.isOpen ? panel.openY : panel.height
         width: panel.panelWidth
         height: Metrics.panelHeight

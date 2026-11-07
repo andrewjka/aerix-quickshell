@@ -16,29 +16,19 @@
 `Metrics.panelShadowRadius` (свойство `blur` у `RectangularShadow`). Форма
 затухания определяется Qt и не идентична Hyprland render_power.
 
-Прозрачный буфер layer-surface включает область отрисовки тени. Он не увеличивает
-резерв рабочей области: у Dock остаётся `ExclusionMode.Ignore`, у Bar явно
-`exclusiveZone: Metrics.statusBarHeight`. Видимая поверхность Bar сохраняет
-высоту и боковые отступы; Dock сохраняет нижний отступ и центрирование.
-Маски ввода исключают дополнительную область тени. У края физического экрана
-тень обрезается; Dock не поднимается ради её размещения.
+Тени вынесены в отдельные layer-surface: `bar/StatusBarShadow.qml` и
+`dock/DockShadow.qml`. Видимые `StatusBar` и `DockPanel` содержат только
+интерфейс и получают HyprGlass как обычно. В локальном
+`~/.config/hypr/plugins/hyprglass.lua` namespace `aerix:status-bar-shadow` и
+`aerix:dock-shadow` исключены из HyprGlass, поэтому он не размывает уже
+нарисованную Qt-тень. Shadow-окна не имеют input region и не резервируют
+рабочую область.
 
-Параметры radius 40 и красный цвет принадлежат пользователю и оставлены
-для тестирования.
-
-## HyprGlass
-
-`StatusBar.qml` и `DockPanel.qml` передают видимую поверхность панели в
-`BackgroundEffect.blurRegion` (протокол `ext-background-effect-v1`). В локальном
-`~/.config/hypr/plugins/hyprglass.lua` для namespace `aerix:status-bar` и
-`aerix:dock-panel` установлен `mask_mode = "region"`. Поэтому HyprGlass
-размывает только фон под скруглённой панелью; внешняя Qt-тень остаётся в том же
-layer-surface, но не попадает в область glass-эффекта.
-
-Этот способ не зависит от размера, позиции и анимации Dock: `Region` следует
-за `panelSurface` и повторяет его четыре радиуса. Он требует Quickshell с
-`BackgroundEffect` и compositor с `ext-background-effect-v1`; без поддержки
-протокола интерфейс остаётся рабочим, но фон панели не будет размываться.
+`DockPresentation` хранит состояние открытия по экрану, а `DockLayout`
+рассчитывает общую ширину Dock. Благодаря этому Dock и его тень начинают
+анимацию одновременно, имеют одинаковую ширину и остаются центрированными при
+изменении состава окон. У края физического экрана тень обрезается; Dock не
+поднимается ради её размещения.
 
 Проверка 2026-11-07 после перехода на штатные эффекты: отдельный OpenGL-рендер
 Qt через Xvfb подтвердил белую заливку с alpha 20/255, красную внешнюю тень

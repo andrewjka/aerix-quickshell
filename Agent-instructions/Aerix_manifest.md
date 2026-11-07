@@ -209,18 +209,21 @@ Engine, упаковку и новые интерфейсы планироват
 
 ## Что действительно есть в Shell
 
-`shell.qml` — единая точка композиции. Два `Variants` создают на каждом экране
-свои `StatusBar` и `DockPanel`, а singleton-сервисы общие для всех экранов.
+`shell.qml` — единая точка композиции. Четыре `Variants` создают на каждом
+экране отдельные видимые поверхности и input-прозрачные поверхности теней для
+StatusBar и Dock; singleton-сервисы общие для всех экранов.
 Подключение и отключение экранов предусмотрено моделью `Quickshell.screens`, но
 полноценную проверку hotplug и разных DPI нельзя считать подтверждённой.
 
 ```text
 shell.qml
+├── bar/StatusBarShadow.qml → core/PanelShadow.qml
 ├── bar/StatusBar.qml → ClockWidget.qml → services/ClockService.qml
-└── dock/DockPanel.qml → DockGroup.qml → DockIcon.qml
+├── dock/DockShadow.qml → DockLayout.qml → core/PanelShadow.qml
+└── dock/DockPanel.qml → DockLayout.qml → DockGroup.qml → DockIcon.qml
     ├── WorkspaceIndicator.qml
     └── WindowPreview.qml (LazyLoader)
-services/  DockService, IconService, ClockService — общие singleton
+services/  DockService, DockPresentation, IconService, ClockService — общие singleton
 core/      Metrics, Motion, StandardAnimation, PanelShadow
 ```
 
@@ -246,6 +249,8 @@ Dock показывает **открытые окна**, сгруппирова�
 на окно другого workspace есть задержка закрытия. Ширина ограничена **75 %**
 логической ширины экрана; иконки уплотняются, при переполнении предусмотрен
 горизонтальный `Flickable` (вертикальное колесо переключает workspace).
+`DockPresentation` синхронизирует открытие и итоговую ширину с `DockShadow`,
+поэтому тень следует за той же анимацией, но не перехватывает ввод.
 
 `DockGroup` рассчитывает отступы и раздвижение слотов; `DockIcon` отображает
 изображение и посылает события, а `WorkspaceIndicator` анимирует обводку
@@ -270,7 +275,7 @@ special workspaces, fullscreen и недоступных мониторов тр
 `WlrKeyboardFocus.Exclusive`, после ухода — `None`: это осознанное поведение,
 влияющее на фокус приложений. Подробности — `Status_bar.md`; его исторические
 измерения и значения следует сверять с кодом: например, в текущем `Metrics`
-высота 40, а неактивная рамка имеет alpha 0.16.
+высота 40, а радиус и цвет тени меняются вместе с пользовательской темой.
 
 Оформление и размеры общих поверхностей задаются преимущественно в
 `core/Metrics.qml`, тень — `PanelShadow.qml`. Единая кривая движения:

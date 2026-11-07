@@ -7,7 +7,17 @@ ShellRoot {
     // а singleton-сервисы остаются общими для всех мониторов.
     Variants {
         model: Quickshell.screens
+        StatusBarShadow {}
+    }
+
+    Variants {
+        model: Quickshell.screens
         StatusBar {}
+    }
+
+    Variants {
+        model: Quickshell.screens
+        DockShadow {}
     }
 
     Variants {

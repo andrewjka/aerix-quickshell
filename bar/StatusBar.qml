@@ -13,8 +13,7 @@ PanelWindow {
         left: true
         right: true
     }
-    // Прозрачная часть буфера нужна лишь для отрисовки внешней тени.
-    implicitHeight: Metrics.statusBarHeight + Math.ceil(Metrics.panelShadowRadius) + 1
+    implicitHeight: Metrics.statusBarHeight
     color: "transparent"
     // При наведении забираем клавиатурный фокус у приложения; после ухода
     // освобождаем его. focusable: true задаёт лишь OnDemand и не гарантирует
@@ -28,26 +27,11 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aerix:status-bar"
 
-    // HyprGlass обрабатывает только поверхность панели, а внешняя Qt-тень
-    // остаётся частью обычной композиции layer-surface.
-    BackgroundEffect.blurRegion: Region {
-        item: surface
-        topLeftRadius: surface.topLeftRadius
-        topRightRadius: surface.topRightRadius
-        bottomLeftRadius: surface.bottomLeftRadius
-        bottomRightRadius: surface.bottomRightRadius
-    }
-
     mask: Region {
         item: surface
     }
 
     // Верхние углы примыкают к границе экрана; скруглены только нижние.
-    // Заливка и обводка используют те же значения, что и поверхность Dock.
-    PanelShadow {
-        sourceItem: surface
-    }
-
     Rectangle {
         id: surface
         x: Metrics.statusBarHorizontalMargin
