@@ -99,14 +99,14 @@ PopupWindow {
             property: "scale"
             from: 0.12
             to: 1
-            duration: Motion.transitionDuration
+            duration: Motion.defaultDuration
         }
         StandardAnimation {
             target: previewFrame
             property: "opacity"
             from: 0
             to: 1
-            duration: Motion.transitionDuration
+            duration: Motion.defaultDuration
         }
     }
 
@@ -139,7 +139,6 @@ PopupWindow {
                 // being created; hiding it until hasContent prevents that
                 // context from becoming ready.
                 visible: preview.panelOpen
-                z: 1
 
                 onCaptureSourceChanged: {
                     // A reused preview must start one fresh capture for the
@@ -171,7 +170,6 @@ PopupWindow {
             width: parent.width
             height: Metrics.previewTitleHeight
             color: "#e61b2431"
-            z: 2
             radius: Metrics.previewRadius
 
             Image {
@@ -213,7 +211,6 @@ PopupWindow {
         color: "transparent"
         border.width: 1
         border.color: "#66ffffff"
-        z: 3
         scale: previewFrame.scale
         opacity: previewFrame.opacity
         transformOrigin: Item.Bottom

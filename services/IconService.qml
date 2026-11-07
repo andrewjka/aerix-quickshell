@@ -15,6 +15,7 @@ Item {
     // when installed or removed desktop entries change.
     property int revision: 0
     readonly property int maxCacheEntries: 256
+    readonly property string fallbackIconName: "application-x-executable"
 
     property var desktopEntriesConnection: Connections {
         target: DesktopEntries
@@ -25,8 +26,8 @@ Item {
         }
     }
 
-    // Единая цепочка поиска: desktop entry, затем имя приложения в icon theme.
-    // Возвращается URL или пустая строка для fallback-буквы в DockIcon.
+    // Единая цепочка поиска: desktop entry, затем имя приложения и
+    // стандартная иконка приложения в активной icon theme.
     function resolve(tl) {
         const ipc = tl?.lastIpcObject;
         const names = [
@@ -72,6 +73,11 @@ Item {
                 }
             }
         }
+
+        // Keep a normal theme icon instead of showing a letter when the
+        // application has no desktop entry or matching app-id icon.
+        if (!resolved)
+            resolved = Quickshell.iconPath(service.fallbackIconName, true);
 
         // Ограничение защищает singleton от роста при большом количестве
         // временных app-id/class, которые могут появляться в течение сессии.

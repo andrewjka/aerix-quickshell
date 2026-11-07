@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Effects
 import "../core"
 import "../services"
 
@@ -16,15 +15,16 @@ Item {
     // group updates them explicitly, so delegate destruction cannot evaluate a
     // binding through a parent that has already become null.
     property int iconSlot: Metrics.iconSlot
-    property bool isHovered: false
+    property bool interactionEnabled: false
     property real hoverOffsetTarget: 0
     property real baseX: 0
     property real hoverOffset: 0
     property real pressOffset: 0
 
-    // Указатель используется DockPanel после выезда панели, чтобы понять,
-    // находится ли курсор уже над иконкой, даже если entered произошёл раньше.
+    // Ссылка на окно используется для hover-сигналов, клика и предпросмотра.
     readonly property var toplevel: modelData
+    // Фактическое наведение нужно панели и при завершении её выезда;
+    // разрешение визуальной реакции проверяется отдельно в scale.
     readonly property bool pointerInside: iconMouse.containsMouse
     readonly property string appClass: String(toplevel?.lastIpcObject?.class
                                                ?? toplevel?.wayland?.appId
@@ -33,8 +33,6 @@ Item {
         IconService.revision;
         return IconService.resolve(toplevel);
     }
-
-    // События поднимаются наверх; бизнес-логика остаётся вне делегата.
     signal hoverEntered(var toplevel)
     signal hoverExited(var toplevel)
     signal activated(var toplevel)
@@ -42,38 +40,25 @@ Item {
     width: iconSlot
     height: 46
     x: baseX + hoverOffset
-    z: iconMouse.containsMouse ? 1000 : index
 
     Behavior on hoverOffset {
-        StandardAnimation {}
+        StandardAnimation {
+            duration: Motion.defaultDuration
+        }
     }
 
     onHoverOffsetTargetChanged: hoverOffset = hoverOffsetTarget
 
-    // Внутренний слот масштабируется целиком, поэтому увеличение не меняет
-    // занимаемую моделью ширину и не ломает плотную раскладку.
+    // Масштабируется только изображение; слот и его MouseArea сохраняют размер.
+    // Раздвижение соседних слотов рассчитывает DockGroup.
     Item {
         x: (parent.width - width) / 2
-        y: 3 + iconRoot.pressOffset
-        width: 38
-        height: 38
-        // Масштаб читается прямо из MouseArea. Поэтому задержка общего
-        // hoveredAddress не может увеличить иконку уже после ухода курсора.
-        scale: iconRoot.pointerInside ? 1.5 : 1
+        y: (parent.height - height) / 2 + iconRoot.pressOffset
+        width: Metrics.iconSize
+        height: Metrics.iconSize
+        scale: iconRoot.interactionEnabled && iconRoot.pointerInside
+               ? Metrics.iconHoverScale : 1
         transformOrigin: Item.Center
-
-        // Временная тестовая тень: полностью непрозрачная, чисто красная.
-        // Эффект стоит на общем контейнере, поэтому виден и для обычной
-        // иконки приложения, и для резервной буквы при отсутствии файла.
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: Qt.rgba(26 / 255, 26 / 255, 26 / 255, 0.48)
-            shadowOpacity: 1
-            shadowBlur: 0.6
-            shadowHorizontalOffset: 0
-            shadowVerticalOffset: 0
-        }
 
         Behavior on scale {
             StandardAnimation {}
@@ -81,22 +66,28 @@ Item {
 
         Behavior on y {
             StandardAnimation {
-                duration: Motion.pressDuration
+                duration: Motion.defaultDuration
             }
         }
 
-        // sourceSize ограничивает bitmap-кэш двумя пикселями на экранный пиксель.
         Image {
             id: appImage
             anchors.fill: parent
             source: iconRoot.iconPath
             cache: true
-            // Keep two physical pixels per displayed pixel without retaining
-            // unnecessarily large desktop icon bitmaps in the image cache.
-            sourceSize: Qt.size(Math.ceil(width * 2), Math.ceil(height * 2))
+            // Image-провайдер темы сам выбирает SVG/PNG, а sourceSize задаёт
+            // ему достаточно большой размер целевой текстуры.
+            sourceSize: Qt.size(
+                Math.ceil(width * Metrics.iconHoverScale
+                          * Math.max(1, Screen.devicePixelRatio)
+                          * Metrics.iconRasterOversample),
+                Math.ceil(height * Metrics.iconHoverScale
+                          * Math.max(1, Screen.devicePixelRatio)
+                          * Metrics.iconRasterOversample))
             fillMode: Image.PreserveAspectFit
             smooth: true
-            visible: iconRoot.iconPath !== "" && status === Image.Ready
+            visible: iconRoot.iconPath !== ""
+                     && status === Image.Ready
         }
 
         Rectangle {
@@ -115,14 +106,11 @@ Item {
         }
     }
 
-    // Небольшая зона безопасности вокруг визуальной иконки предотвращает
-    // дрожание hover при движении курсора по плотной раскладке.
+    // У каждого делегата своя MouseArea: она обрабатывает hover и клик
+    // внутри слота без дополнительной safe zone и общей сетки hit-test.
     MouseArea {
         id: iconMouse
-        x: -Metrics.hoverPadding
-        y: -Metrics.hoverPadding
-        width: parent.width + 2 * Metrics.hoverPadding
-        height: parent.height + 2 * Metrics.hoverPadding
+        anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
 
@@ -130,12 +118,9 @@ Item {
         onReleased: iconRoot.pressOffset = 0
         onCanceled: iconRoot.pressOffset = 0
 
-        onEntered: {
-            iconRoot.hoverEntered(iconRoot.toplevel);
-        }
-        onExited: {
-            iconRoot.hoverExited(iconRoot.toplevel);
-        }
+        onEntered: iconRoot.hoverEntered(iconRoot.toplevel)
+        onExited: iconRoot.hoverExited(iconRoot.toplevel)
         onClicked: iconRoot.activated(iconRoot.toplevel)
     }
+
 }

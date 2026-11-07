@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import "../core"
@@ -40,6 +39,8 @@ PanelWindow {
             return;
         }
 
+        // Курсор мог оказаться над иконкой ещё во время выезда панели. В этом
+        // случае MouseArea уже содержит курсор, но onEntered повторно не придёт.
         for (let i = 0; i < groupRepeater.count; i++) {
             const group = groupRepeater.itemAt(i);
             const address = group?.pointerAddressUnderCursor() ?? "";
@@ -182,7 +183,7 @@ PanelWindow {
         if (DockService.stepWorkspace(modelData.name, direction))
             return;
         activeOutline.edgeNudgeDirection = direction < 0 ? -1 : 1;
-        activeOutline.edgeNudge = 0;
+        activeOutline.edgeNudgeProgress = 0;
         edgeNudgeAnimation.restart();
     }
 
@@ -211,19 +212,8 @@ PanelWindow {
         height: win.panelHeight
         radius: Metrics.capsuleRadius
         color: Metrics.panelColor
-
-        // Hyprland applies decoration.shadow to normal windows, but not to
-        // layer-shell surfaces. Keep the same shadow visually in the panel.
-        layer.enabled: win.open
-        layer.effect: MultiEffect {
-            shadowEnabled: win.open
-            // Approximation of Hyprland's range = 8, render_power = 4.
-            shadowBlur: 0.6
-            shadowColor: Qt.rgba(26 / 255, 26 / 255, 26 / 255, 0.48)
-            shadowOpacity: 1
-            shadowHorizontalOffset: 0
-            shadowVerticalOffset: 0
-        }
+        border.width: Metrics.panelBorderWidth
+        border.color: Metrics.panelBorderColor
 
         Behavior on y {
             StandardAnimation {}
@@ -287,59 +277,8 @@ PanelWindow {
                 }
             }
 
-            Row {
-                id: groupsRow
-                x: win.layoutHoverBuffer + Math.max(0, (capsule.width - 2 * win.innerPad - width) / 2)
-                y: 26
-                spacing: win.groupGap
-                height: 50
-                z: 1
-
-                Repeater {
-                    id: groupRepeater
-                    model: win.groups
-
-                    delegate: DockGroup {
-                        groupCount: win.groups.length
-                        hoveredAddress: win.hoveredAddress
-                        activeWorkspaceKey: win.activeWorkspaceKey
-                        iconSlot: win.iconSlot
-                        layoutCollapsedStep: win.layoutCollapsedStep
-                        layoutHoverGap: win.layoutHoverGap
-                        groupPad: win.groupPad
-                        activeWorkspaceGap: win.activeWorkspaceGap
-                        activeWorkspacePadding: win.activeWorkspacePadding
-                        activeOnHoveredLeft: !isCurrent && hoveredIndex === 0
-                                              && index > 0
-                                              && win.groups[index - 1].key === win.activeWorkspaceKey
-                        activeOnHoveredRight: !isCurrent
-                                               && hoveredIndex === modelData.windows.length - 1
-                                               && index < win.groups.length - 1
-                                               && win.groups[index + 1].key === win.activeWorkspaceKey
-
-                        onHoverEntered: function(toplevel) {
-                            if (win.panelFullyOpen)
-                                win.hoveredAddress = String(toplevel?.address ?? "");
-                        }
-                        onHoverExited: function(toplevel) {
-                            if (win.hoveredAddress === String(toplevel?.address ?? ""))
-                                win.hoveredAddress = "";
-                        }
-                        onActivated: function(toplevel) {
-                            if (!win.panelFullyOpen)
-                                return;
-                            if (!isCurrent) {
-                                win.open = true;
-                                clickHoldTimer.restart();
-                            }
-                            DockService.focusWindow(toplevel);
-                        }
-                    }
-                }
-            }
-
-            // Активная workspace-капсула переезжает между группами отдельно от
-            // иконок, что сохраняет плавный переход при смене workspace.
+            // Обводка объявлена раньше ряда, поэтому естественно рисуется под
+            // иконками без ручного управления z-порядком.
             Rectangle {
                 id: activeOutline
 
@@ -358,11 +297,25 @@ PanelWindow {
                 property real slideFromX: 0
                 property real slideFromWidth: 0
                 property real verticalExpansion: 0
-                property real edgeNudge: 0
+                property real edgeNudgeProgress: 0
                 property real edgeNudgeDirection: 1
+                readonly property real edgeNudge: {
+                    const progress = Math.max(0, Math.min(1, edgeNudgeProgress));
+                    return edgeNudgeDirection * 8 * Math.sin(Math.PI * progress);
+                }
 
-                readonly property real destinationX: displayedGroup ? groupsRow.x + displayedGroup.x + displayedGroup.leftWorkspaceGap + 2 : 0
-                readonly property real destinationWidth: displayedGroup ? displayedGroup.width - displayedGroup.leftWorkspaceGap - displayedGroup.rightWorkspaceGap - 4 : 0
+                readonly property real destinationX: displayedGroup
+                                                    ? groupsRow.x
+                                                      + displayedGroup.x
+                                                      + displayedGroup.leftWorkspaceGap
+                                                      + 2
+                                                    : 0
+                readonly property real destinationWidth: displayedGroup
+                                                        ? displayedGroup.width
+                                                          - displayedGroup.leftWorkspaceGap
+                                                          - displayedGroup.rightWorkspaceGap
+                                                          - 4
+                                                        : 0
 
                 onTargetGroupChanged: {
                     const shouldSlide = displayedGroup !== null && targetGroup !== null;
@@ -389,7 +342,6 @@ PanelWindow {
                 border.pixelAligned: false
                 antialiasing: true
                 border.color: "#e8ffffff"
-                z: 0
 
                 SequentialAnimation {
                     id: capsuleTransition
@@ -400,7 +352,7 @@ PanelWindow {
                             property: "verticalExpansion"
                             from: 0
                             to: 20
-                            duration: Motion.transitionDuration
+                            duration: Motion.defaultDuration
                         }
 
                         StandardAnimation {
@@ -409,7 +361,7 @@ PanelWindow {
                             property: "slideProgress"
                             from: 0
                             to: 1
-                            duration: Motion.transitionDuration
+                            duration: Motion.defaultDuration
                         }
                     }
 
@@ -418,30 +370,74 @@ PanelWindow {
                         property: "verticalExpansion"
                         from: 20
                         to: 0
-                        duration: Motion.transitionDuration
+                        duration: Motion.defaultDuration
                     }
                 }
 
-                // A boundary hit gets a small horizontal elastic response.
-                SequentialAnimation {
+                // Один прогресс за 512 мс уводит капсулу к краю и возвращает
+                // обратно; синус формирует обе фазы без коротких анимаций.
+                StandardAnimation {
                     id: edgeNudgeAnimation
+                    target: activeOutline
+                    property: "edgeNudgeProgress"
+                    from: 0
+                    to: 1
+                    duration: Motion.defaultDuration
+                }
+            }
 
-                    StandardAnimation {
-                        target: activeOutline
-                        property: "edgeNudge"
-                        from: 0
-                        to: activeOutline.edgeNudgeDirection * 8
-                        duration: Motion.pressDuration
-                    }
-                    StandardAnimation {
-                        target: activeOutline
-                        property: "edgeNudge"
-                        from: activeOutline.edgeNudgeDirection * 8
-                        to: 0
-                        duration: Motion.pressDuration
+            Row {
+                id: groupsRow
+                x: win.layoutHoverBuffer + Math.max(0, (capsule.width - 2 * win.innerPad - width) / 2)
+                y: 26
+                spacing: win.groupGap
+                height: 50
+
+                Repeater {
+                    id: groupRepeater
+                    model: win.groups
+
+                    delegate: DockGroup {
+                        groupCount: win.groups.length
+                        hoveredAddress: win.hoveredAddress
+                        activeWorkspaceKey: win.activeWorkspaceKey
+                        iconSlot: win.iconSlot
+                        interactionEnabled: win.panelFullyOpen
+                        layoutCollapsedStep: win.layoutCollapsedStep
+                        layoutHoverGap: win.layoutHoverGap
+                        groupPad: win.groupPad
+                        activeWorkspaceGap: win.activeWorkspaceGap
+                        activeWorkspacePadding: win.activeWorkspacePadding
+                        activeOnHoveredLeft: !isCurrent && hoveredIndex === 0
+                                              && index > 0
+                                              && win.groups[index - 1].key === win.activeWorkspaceKey
+                        activeOnHoveredRight: !isCurrent
+                                               && hoveredIndex === modelData.windows.length - 1
+                                               && index < win.groups.length - 1
+                                               && win.groups[index + 1].key === win.activeWorkspaceKey
+
+                        onHoverEntered: function(toplevel) {
+                            if (win.panelFullyOpen)
+                                win.hoveredAddress = String(toplevel?.address ?? "");
+                        }
+                        onHoverExited: function(toplevel) {
+                            if (win.hoveredAddress === String(toplevel?.address ?? ""))
+                                win.hoveredAddress = "";
+                        }
+                        onActivated: function(toplevel) {
+                            if (!win.panelFullyOpen)
+                                return;
+
+                            if (!isCurrent) {
+                                win.open = true;
+                                clickHoldTimer.restart();
+                            }
+                            DockService.focusWindow(toplevel);
+                        }
                     }
                 }
             }
+
         }
     }
 }

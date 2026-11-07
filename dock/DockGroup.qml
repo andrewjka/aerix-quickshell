@@ -18,6 +18,7 @@ Item {
     required property string hoveredAddress
     required property string activeWorkspaceKey
     required property int iconSlot
+    required property bool interactionEnabled
     required property real layoutCollapsedStep
     required property real layoutHoverGap
     required property real groupPad
@@ -36,13 +37,10 @@ Item {
         return icon ? groupRoot.x + icon.x + icon.width / 2 : 0;
     }
 
-    // Эти сигналы отделяют визуальный компонент от бизнес-логики DockPanel.
     signal hoverEntered(var toplevel)
     signal hoverExited(var toplevel)
     signal activated(var toplevel)
 
-    // Интерфейс DockPanel использует это после окончания выезда панели:
-    // курсор мог войти в MouseArea ещё во время движения капсулы.
     function pointerAddressUnderCursor() {
         for (let i = 0; i < iconRepeater.count; i++) {
             const icon = iconRepeater.itemAt(i);
@@ -63,7 +61,7 @@ Item {
                 continue;
 
             icon.iconSlot = iconSlot;
-            icon.isHovered = hovered >= 0 && i === hovered;
+            icon.interactionEnabled = interactionEnabled;
             icon.hoverOffsetTarget = hovered < 0
                 ? 0
                 : (i < hovered ? -layoutHoverGap : (i > hovered ? layoutHoverGap : 0));
@@ -77,6 +75,7 @@ Item {
 
     onHoveredAddressChanged: syncIconLayout()
     onIconSlotChanged: syncIconLayout()
+    onInteractionEnabledChanged: syncIconLayout()
     onLayoutCollapsedStepChanged: syncIconLayout()
     onLayoutHoverGapChanged: syncIconLayout()
     onGroupPadChanged: syncIconLayout()
@@ -126,7 +125,6 @@ Item {
            + rightWorkspaceGap
            + 2 * workspacePadding
     height: 50
-    z: hoveredIndex >= 0 ? 10 : 0
 
     Behavior on workspacePadding {
         StandardAnimation {}
@@ -138,10 +136,14 @@ Item {
         StandardAnimation {}
     }
     Behavior on leftHoverExpansion {
-        StandardAnimation {}
+        StandardAnimation {
+            duration: Motion.defaultDuration
+        }
     }
     Behavior on rightHoverExpansion {
-        StandardAnimation {}
+        StandardAnimation {
+            duration: Motion.defaultDuration
+        }
     }
 
     Item {
@@ -169,4 +171,5 @@ Item {
             }
         }
     }
+
 }
