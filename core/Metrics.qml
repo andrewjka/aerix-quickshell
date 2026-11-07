@@ -5,7 +5,7 @@ import QtQml
 QtObject {
     // Базовые размеры Dock и его невидимой области активации.
     readonly property int spacing: 10
-    readonly property int panelHeight: 62
+    readonly property int panelHeight: 54
     readonly property int bottomMargin: 2 * spacing
     readonly property int triggerHeight: 8
     readonly property int panelHorizontalMargin: 12
@@ -25,6 +25,11 @@ QtObject {
     readonly property real iconHoverScale: 1.5
     readonly property real iconRasterOversample: 1.1
 
+    // Постоянная верхняя панель использует общую сетку боковых отступов.
+    readonly property int statusBarHeight: 40
+    readonly property int statusBarHorizontalMargin: spacing
+    readonly property int statusBarFontSize: 16
+
     // Геометрия лёгкого snapshot-превью окна.
     readonly property int previewWidth: 440
     readonly property int previewHeight: 248
@@ -34,5 +39,10 @@ QtObject {
     // Цвет хранится как var: QtQml не предоставляет отдельный тип color.
     readonly property var panelColor: Qt.rgba(1, 1, 1, 0.08)
     readonly property int panelBorderWidth: 1
-    readonly property var panelBorderColor: Qt.rgba(1, 1, 1, 0.32)
+    readonly property var panelBorderColor: Qt.rgba(208, 208, 208, 0.32)
+    readonly property var panelInactiveBorderColor: Qt.rgba(74 / 255, 74 / 255, 74 / 255, 0.16)
+    // Единая тень поверхностей Dock и status-bar по параметрам Hyprland.
+    readonly property int panelShadowRadius: 8
+    readonly property int panelShadowSamples: 17
+    readonly property var panelShadowColor: Qt.rgba(26 / 255, 26 / 255, 26 / 255, 0.48)
 }

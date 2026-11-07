@@ -128,6 +128,10 @@ PanelWindow {
     }
 
     // Поверхность Dock и анимации её появления и изменения ширины.
+    PanelShadow {
+        sourceItem: panelSurface
+    }
+
     Rectangle {
         id: panelSurface
         x: Metrics.panelHorizontalMargin
@@ -137,7 +141,17 @@ PanelWindow {
         radius: Metrics.panelRadius
         color: Metrics.panelColor
         border.width: Metrics.panelBorderWidth
-        border.color: Metrics.panelBorderColor
+        border.color: panelHover.hovered
+                      ? Metrics.panelBorderColor
+                      : Metrics.panelInactiveBorderColor
+
+        Behavior on border.color {
+            ColorAnimation {
+                duration: Motion.defaultDuration
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Motion.standardCurve
+            }
+        }
 
         Behavior on y {
             StandardAnimation {}
@@ -208,7 +222,10 @@ PanelWindow {
             Row {
                 id: workspaceRow
                 x: Metrics.hoverSpacing + Math.max(0, (panelSurface.width - 2 * Metrics.panelPadding - width) / 2)
-                y: 26
+                // Ряд центрируется по высоте поверхности, а верхний overflow
+                // Flickable компенсируется отдельным отступом.
+                y: Metrics.iconTopOverflow
+                   + Math.max(0, (panelSurface.height - Metrics.groupHeight) / 2)
                 spacing: panel.iconSpacing - Metrics.iconSlotSize
                 height: Metrics.groupHeight
 
