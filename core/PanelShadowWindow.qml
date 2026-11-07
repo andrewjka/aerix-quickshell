@@ -13,6 +13,7 @@ PanelWindow {
     required property Rectangle shadowSource
     required property string shadowNamespace
     property bool shadowVisible: true
+    property real shadowOpacity: 1
 
     screen: targetScreen
     color: "transparent"
@@ -31,5 +32,6 @@ PanelWindow {
     PanelShadow {
         sourceItem: shadowWindow.shadowSource
         visible: shadowWindow.shadowVisible
+        opacity: shadowWindow.shadowOpacity
     }
 }

@@ -10,6 +10,8 @@ Item {
     readonly property real extent: Math.max(0, Metrics.panelShadowRadius) + 1
 
     anchors.fill: sourceItem
+    scale: sourceItem.scale
+    transformOrigin: sourceItem.transformOrigin
 
     Item {
         id: shadowSource

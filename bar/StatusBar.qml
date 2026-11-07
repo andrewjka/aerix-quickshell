@@ -5,6 +5,8 @@ import "../core"
 
 // Одно окно на монитор. Данные виджетов поступают из общих singleton-сервисов.
 PanelWindow {
+    id: statusBar
+
     required property var modelData
 
     screen: modelData
@@ -15,12 +17,9 @@ PanelWindow {
     }
     implicitHeight: Metrics.statusBarHeight
     color: "transparent"
-    // При наведении забираем клавиатурный фокус у приложения; после ухода
-    // освобождаем его. focusable: true задаёт лишь OnDemand и не гарантирует
-    // передачу фокуса при наведении в Hyprland.
-    WlrLayershell.keyboardFocus: statusBarHover.hovered
-                                ? WlrKeyboardFocus.Exclusive
-                                : WlrKeyboardFocus.None
+    // Обычная панель не должна забирать клавиатурный фокус у приложения.
+    // Интерактивные popup управляют вводом независимо от layer-shell панели.
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
     // Постоянная панель резервирует свою высоту, чтобы окна начинались под ней.
     exclusiveZone: Metrics.statusBarHeight
@@ -44,13 +43,33 @@ PanelWindow {
         color: Metrics.panelColor
         antialiasing: true
 
-        HoverHandler {
-            id: statusBarHover
+        // Декоративная подпись скрывается раньше, чем может пересечься с часами.
+        Text {
+            id: brandLabel
+            anchors.left: parent.left
+            anchors.leftMargin: Metrics.spacing
+            anchors.verticalCenter: parent.verticalCenter
+            visible: parent.width >= 2 * (Metrics.spacing + implicitWidth) + clock.implicitWidth
+            text: "Aerix"
+            color: "#e6ffffff"
+            font.pixelSize: Metrics.statusBarFontSize
+            font.weight: Font.Medium
+            verticalAlignment: Text.AlignVCenter
+        }
+
+        KeyboardLayoutWidget {
+            id: keyboardLayout
+            barWindow: statusBar
+            anchors.right: parent.right
+            anchors.rightMargin: Metrics.spacing
+            anchors.verticalCenter: parent.verticalCenter
+            visible: parent.width >= 2 * (Metrics.spacing + implicitWidth) + clock.implicitWidth
         }
 
         // Независимое центрирование оставляет часы в центре экрана, когда
         // слева и справа появятся группы разной ширины.
         ClockWidget {
+            id: clock
             anchors.centerIn: parent
         }
     }

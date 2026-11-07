@@ -218,7 +218,12 @@ StatusBar и Dock; singleton-сервисы общие для всех экра�
 ```text
 shell.qml
 ├── bar/StatusBarShadow.qml → core/PanelShadow.qml
-├── bar/StatusBar.qml → ClockWidget.qml → services/ClockService.qml
+├── bar/StatusBar.qml
+│   ├── ClockWidget.qml → services/ClockService.qml
+│   └── KeyboardLayoutWidget.qml
+│       ├── services/KeyboardLayoutService.qml
+│       └── KeyboardLayoutPopup.qml (LazyLoader, Overlay + HyprlandFocusGrab)
+│           └── core/PanelShadowWindow.qml → core/PanelShadow.qml
 ├── dock/DockShadow.qml → DockLayout.qml → core/PanelShadow.qml
 └── dock/DockPanel.qml → DockLayout.qml → DockGroup.qml → DockIcon.qml
     ├── WorkspaceIndicator.qml
