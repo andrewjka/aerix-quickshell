@@ -5,40 +5,30 @@ import "../core"
 import "../services"
 
 Item {
-    id: iconRoot
+    id: icon
 
     // Данные окна и геометрические цели приходят от DockGroup. Компонент не
     // знает о Hyprland-командах и занимается только отображением и сигналами.
-    required property var modelData
-    required property int index
-    // These are regular properties instead of bindings into DockGroup. The
-    // group updates them explicitly, so delegate destruction cannot evaluate a
-    // binding through a parent that has already become null.
-    property int iconSlot: Metrics.iconSlot
+    required property var toplevel
+    // Значения передаются явно: уничтожение группы не оставляет в делегате
+    // bindings, обращающихся к уже удалённому родителю.
     property bool interactionEnabled: false
-    property real hoverOffsetTarget: 0
     property real baseX: 0
     property real hoverOffset: 0
-    property real pressOffset: 0
 
-    // Ссылка на окно используется для hover-сигналов, клика и предпросмотра.
-    readonly property var toplevel: modelData
     // Фактическое наведение нужно панели и при завершении её выезда;
     // разрешение визуальной реакции проверяется отдельно в scale.
     readonly property bool pointerInside: iconMouse.containsMouse
-    readonly property string appClass: String(toplevel?.lastIpcObject?.class
+    readonly property string applicationName: String(toplevel?.lastIpcObject?.class
                                                ?? toplevel?.wayland?.appId
                                                ?? "")
-    readonly property string iconPath: {
-        IconService.revision;
-        return IconService.resolve(toplevel);
-    }
+    readonly property string iconSource: IconService.resolveIcon(toplevel)
     signal hoverEntered(var toplevel)
     signal hoverExited(var toplevel)
     signal activated(var toplevel)
 
-    width: iconSlot
-    height: 46
+    width: Metrics.iconSlotSize
+    height: Metrics.iconSlotSize
     x: baseX + hoverOffset
 
     Behavior on hoverOffset {
@@ -47,16 +37,14 @@ Item {
         }
     }
 
-    onHoverOffsetTargetChanged: hoverOffset = hoverOffsetTarget
-
     // Масштабируется только изображение; слот и его MouseArea сохраняют размер.
     // Раздвижение соседних слотов рассчитывает DockGroup.
     Item {
         x: (parent.width - width) / 2
-        y: (parent.height - height) / 2 + iconRoot.pressOffset
+        y: (parent.height - height) / 2 + (iconMouse.pressed ? Metrics.iconPressOffset : 0)
         width: Metrics.iconSize
         height: Metrics.iconSize
-        scale: iconRoot.interactionEnabled && iconRoot.pointerInside
+        scale: icon.interactionEnabled && icon.pointerInside
                ? Metrics.iconHoverScale : 1
         transformOrigin: Item.Center
 
@@ -73,7 +61,7 @@ Item {
         Image {
             id: appImage
             anchors.fill: parent
-            source: iconRoot.iconPath
+            source: icon.iconSource
             cache: true
             // Image-провайдер темы сам выбирает SVG/PNG, а sourceSize задаёт
             // ему достаточно большой размер целевой текстуры.
@@ -86,7 +74,7 @@ Item {
                           * Metrics.iconRasterOversample))
             fillMode: Image.PreserveAspectFit
             smooth: true
-            visible: iconRoot.iconPath !== ""
+            visible: icon.iconSource !== ""
                      && status === Image.Ready
         }
 
@@ -98,7 +86,7 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                text: iconRoot.appClass.slice(0, 1).toUpperCase() || "?"
+                text: icon.applicationName.slice(0, 1).toUpperCase() || "?"
                 color: "white"
                 font.pixelSize: 18
                 font.weight: Font.DemiBold
@@ -114,13 +102,8 @@ Item {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
 
-        onPressed: iconRoot.pressOffset = 8
-        onReleased: iconRoot.pressOffset = 0
-        onCanceled: iconRoot.pressOffset = 0
-
-        onEntered: iconRoot.hoverEntered(iconRoot.toplevel)
-        onExited: iconRoot.hoverExited(iconRoot.toplevel)
-        onClicked: iconRoot.activated(iconRoot.toplevel)
+        onEntered: icon.hoverEntered(icon.toplevel)
+        onExited: icon.hoverExited(icon.toplevel)
+        onClicked: icon.activated(icon.toplevel)
     }
-
 }

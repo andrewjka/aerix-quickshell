@@ -3,128 +3,99 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import "../core"
 
-/**
- * Одна workspace-группа в Dock.
- *
- * Компонент отвечает только за геометрию группы, hover-раздвижение и создание
- * DockIcon. Решения о фокусировке окна и разрешении hover принимает DockPanel.
- */
+// Группа рабочего пространства управляет раскладкой иконок и раздвижением
+// при наведении. Фокусировку окон и открытие панели обрабатывает DockPanel.
 Item {
-    id: groupRoot
+    id: group
 
     required property var modelData
     required property int index
     required property int groupCount
     required property string hoveredAddress
     required property string activeWorkspaceKey
-    required property int iconSlot
     required property bool interactionEnabled
-    required property real layoutCollapsedStep
-    required property real layoutHoverGap
-    required property real groupPad
-    required property real activeWorkspaceGap
-    required property real activeWorkspacePadding
-    required property bool activeOnHoveredLeft
-    required property bool activeOnHoveredRight
+    required property real iconSpacing
+    required property bool activeWorkspaceOnLeft
+    required property bool activeWorkspaceOnRight
 
-    readonly property var groupData: modelData
     readonly property var windows: modelData.windows
-    readonly property bool isCurrent: modelData.key === activeWorkspaceKey
-    readonly property int hoveredIndex: windows.findIndex(item => String(item?.address ?? "") === hoveredAddress)
-    readonly property var hoveredIcon: iconRepeater.itemAt(hoveredIndex)
-    readonly property real hoveredIconCenterX: {
-        const icon = hoveredIcon;
-        return icon ? groupRoot.x + icon.x + icon.width / 2 : 0;
-    }
+    readonly property bool isActiveWorkspace: modelData.key === activeWorkspaceKey
+    readonly property int hoveredIndex: hoveredAddress
+        ? windows.findIndex(toplevel => String(toplevel?.address ?? "") === hoveredAddress)
+        : -1
+    // Repeater может заменить делегат, сохранив его индекс. Ссылку обновляют
+    // также itemAdded/itemRemoved, чтобы preview не удерживал старую иконку.
+    property DockIcon hoveredIcon: null
+    readonly property real iconOriginX: leftWorkspaceGap + workspacePadding + leftHoverExpansion
 
     signal hoverEntered(var toplevel)
     signal hoverExited(var toplevel)
     signal activated(var toplevel)
 
-    function pointerAddressUnderCursor() {
+    /** Восстанавливает hover после выезда панели, когда onEntered уже прошёл. */
+    function addressUnderPointer() {
         for (let i = 0; i < iconRepeater.count; i++) {
-            const icon = iconRepeater.itemAt(i);
+            const icon = iconRepeater.itemAt(i) as DockIcon;
             if (icon?.pointerInside)
                 return String(icon.toplevel?.address ?? "");
         }
         return "";
     }
 
-    // Synchronize delegate state imperatively. Repeater delegates can outlive
-    // their group for one binding pass during model changes; avoiding a direct
-    // groupRoot binding here removes the hoveredAddress null race completely.
-    function syncIconLayout() {
-        const hovered = hoveredIndex;
-        for (let i = 0; i < iconRepeater.count; i++) {
-            const icon = iconRepeater.itemAt(i);
-            if (!icon)
-                continue;
-
-            icon.iconSlot = iconSlot;
-            icon.interactionEnabled = interactionEnabled;
-            icon.hoverOffsetTarget = hovered < 0
-                ? 0
-                : (i < hovered ? -layoutHoverGap : (i > hovered ? layoutHoverGap : 0));
-            icon.baseX = groupPad
-                        + leftWorkspaceGap
-                        + workspacePadding
-                        + leftHoverExpansion
-                        + i * layoutCollapsedStep;
-        }
+    /** Передаёт геометрию без bindings к уничтожаемому родителю делегата. */
+    function updateIconLayout(icon: DockIcon, iconIndex: int) {
+        if (!icon)
+            return;
+        icon.interactionEnabled = interactionEnabled;
+        icon.hoverOffset = hoveredIndex < 0 ? 0 : Math.sign(iconIndex - hoveredIndex) * Metrics.hoverSpacing;
+        icon.baseX = iconOriginX + iconIndex * iconSpacing;
     }
 
-    onHoveredAddressChanged: syncIconLayout()
-    onIconSlotChanged: syncIconLayout()
-    onInteractionEnabledChanged: syncIconLayout()
-    onLayoutCollapsedStepChanged: syncIconLayout()
-    onLayoutHoverGapChanged: syncIconLayout()
-    onGroupPadChanged: syncIconLayout()
-    onWorkspacePaddingChanged: syncIconLayout()
-    onLeftWorkspaceGapChanged: syncIconLayout()
-    onLeftHoverExpansionChanged: syncIconLayout()
+    function updateIconLayouts() {
+        for (let i = 0; i < iconRepeater.count; i++)
+            updateIconLayout(iconRepeater.itemAt(i) as DockIcon, i);
+    }
 
-    // Геометрия workspace-отступов и hover-раздвижения.
-    property real workspacePadding: isCurrent ? activeWorkspacePadding : 0
-    property real leftWorkspaceGap: (isCurrent && index > 0) ? activeWorkspaceGap : 0
-    property real rightWorkspaceGap: (isCurrent && index < groupCount - 1) ? activeWorkspaceGap : 0
+    // Следим за вычисленным индексом: адрес может измениться раньше него.
+    onHoveredIndexChanged: {
+        hoveredIcon = iconRepeater.itemAt(hoveredIndex) as DockIcon;
+        updateIconLayouts();
+    }
+    onInteractionEnabledChanged: updateIconLayouts()
+    onIconSpacingChanged: updateIconLayouts()
+    onIconOriginXChanged: updateIconLayouts()
 
-    property real leftHoverExpansion: {
+    /** Общая формула расширения для левого и правого края группы. */
+    function hoverExpansion(leftEdge) {
         if (hoveredIndex < 0)
             return 0;
 
-        const shouldExpand = isCurrent
-            ? hoveredIndex > 0
-            : !(index === 0 && hoveredIndex === 0)
-              || activeOnHoveredLeft || activeOnHoveredRight;
-        if (!shouldExpand)
-            return 0;
-        return Math.max(0, layoutHoverGap - (activeOnHoveredLeft ? activeWorkspaceGap : 0));
+        const edgeIcon = hoveredIndex === (leftEdge ? 0 : windows.length - 1);
+        const edgeGroup = index === (leftEdge ? 0 : groupCount - 1);
+        const besideActiveLeft = activeWorkspaceOnLeft && hoveredIndex === 0;
+        const besideActiveRight = activeWorkspaceOnRight && hoveredIndex === windows.length - 1;
+        const shouldExpand = isActiveWorkspace
+            ? !edgeIcon
+            : !(edgeGroup && edgeIcon) || besideActiveLeft || besideActiveRight;
+        const besideActive = leftEdge ? besideActiveLeft : besideActiveRight;
+        return shouldExpand
+            ? Math.max(0, Metrics.hoverSpacing - (besideActive ? Metrics.activeWorkspaceGap : 0))
+            : 0;
     }
 
-    property real rightHoverExpansion: {
-        if (hoveredIndex < 0)
-            return 0;
+    // Отступы рабочего пространства и расширения анимируются независимо.
+    property real workspacePadding: isActiveWorkspace ? Metrics.activeWorkspacePadding : 0
+    property real leftWorkspaceGap: isActiveWorkspace && index > 0 ? Metrics.activeWorkspaceGap : 0
+    property real rightWorkspaceGap: isActiveWorkspace && index < groupCount - 1 ? Metrics.activeWorkspaceGap : 0
+    property real leftHoverExpansion: hoverExpansion(true)
+    property real rightHoverExpansion: hoverExpansion(false)
 
-        const isLastWindow = hoveredIndex === windows.length - 1;
-        const isLastGroup = index === groupCount - 1;
-        const shouldExpand = isCurrent
-            ? !isLastWindow
-            : !(isLastGroup && isLastWindow)
-              || activeOnHoveredLeft || activeOnHoveredRight;
-        if (!shouldExpand)
-            return 0;
-        return Math.max(0, layoutHoverGap - (activeOnHoveredRight ? activeWorkspaceGap : 0));
-    }
-
-    width: 2 * groupPad
-           + iconSlot
-           + Math.max(0, windows.length - 1) * layoutCollapsedStep
-           + leftHoverExpansion
-           + rightHoverExpansion
-           + leftWorkspaceGap
-           + rightWorkspaceGap
+    width: Metrics.iconSlotSize
+           + Math.max(0, windows.length - 1) * iconSpacing
+           + leftHoverExpansion + rightHoverExpansion
+           + leftWorkspaceGap + rightWorkspaceGap
            + 2 * workspacePadding
-    height: 50
+    height: Metrics.groupHeight
 
     Behavior on workspacePadding {
         StandardAnimation {}
@@ -136,40 +107,35 @@ Item {
         StandardAnimation {}
     }
     Behavior on leftHoverExpansion {
-        StandardAnimation {
-            duration: Motion.defaultDuration
-        }
+        StandardAnimation { duration: Motion.defaultDuration }
     }
     Behavior on rightHoverExpansion {
-        StandardAnimation {
-            duration: Motion.defaultDuration
-        }
+        StandardAnimation { duration: Motion.defaultDuration }
     }
 
-    Item {
-        x: 0
-        y: 2
-        width: parent.width
-        height: 46
+    Repeater {
+        id: iconRepeater
+        model: group.windows
 
-        Repeater {
-            id: iconRepeater
-            model: groupRoot.windows
+        // Новый делегат настраивается один раз, без обхода уже созданных иконок.
+        onItemAdded: (index, item) => {
+            group.updateIconLayout(item as DockIcon, index);
+            if (index === group.hoveredIndex)
+                group.hoveredIcon = item as DockIcon;
+        }
+        onItemRemoved: (index, item) => {
+            if (group.hoveredIcon === item)
+                group.hoveredIcon = null;
+        }
 
-            onItemAdded: groupRoot.syncIconLayout()
+        delegate: DockIcon {
+            required property var modelData
+            toplevel: modelData
+            y: 2
 
-            delegate: DockIcon {
-                onHoverEntered: function(toplevel) {
-                    groupRoot.hoverEntered(toplevel);
-                }
-                onHoverExited: function(toplevel) {
-                    groupRoot.hoverExited(toplevel);
-                }
-                onActivated: function(toplevel) {
-                    groupRoot.activated(toplevel);
-                }
-            }
+            onHoverEntered: toplevel => group.hoverEntered(toplevel)
+            onHoverExited: toplevel => group.hoverExited(toplevel)
+            onActivated: toplevel => group.activated(toplevel)
         }
     }
-
 }

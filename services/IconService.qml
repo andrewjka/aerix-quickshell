@@ -1,89 +1,69 @@
 pragma Singleton
 
 import QtQml
-import QtQuick
 import Quickshell
 
-Item {
+QtObject {
     id: service
 
-    // Иконки разрешаются редко, поэтому сохраняем результат до изменения
-    // desktop entries. Это исключает повторный поиск темы для каждого binding.
-    property var pathCache: ({})
-
-    // DesktopEntries watches application directories and emits this signal
-    // when installed or removed desktop entries change.
-    property int revision: 0
+    // Map даёт поиск и проверку лимита без обхода всех записей кэша.
+    property var iconCache: new Map()
     readonly property int maxCacheEntries: 256
     readonly property string fallbackIconName: "application-x-executable"
 
-    property var desktopEntriesConnection: Connections {
+    property Connections desktopEntriesConnection: Connections {
         target: DesktopEntries
-
         function onApplicationsChanged() {
-            service.revision += 1;
-            service.pathCache = ({});
+            // Новая ссылка обновляет bindings; очистка по лимиту ниже меняет
+            // содержимое Map без повторного вычисления уже показанных иконок.
+            service.iconCache = new Map();
         }
     }
 
-    // Единая цепочка поиска: desktop entry, затем имя приложения и
-    // стандартная иконка приложения в активной icon theme.
-    function resolve(tl) {
-        const ipc = tl?.lastIpcObject;
-        const names = [
-            String(tl?.wayland?.appId ?? ""),
+    /** Разрешает абсолютный путь или имя иконки из текущей темы. */
+    function iconSource(iconName) {
+        if (!iconName)
+            return "";
+        return iconName.startsWith("/")
+            ? "file://" + iconName
+            : Quickshell.iconPath(iconName, true);
+    }
+
+    /** Ищет иконку по desktop entry, затем app-id/class и общему fallback. */
+    function resolveIcon(toplevel) {
+        const ipc = toplevel?.lastIpcObject;
+        const names = [...new Set([
+            String(toplevel?.wayland?.appId ?? ""),
             String(ipc?.class ?? ""),
             String(ipc?.initialClass ?? "")
-        ];
-        const cacheKey = names.join("\u001f");
-        if (Object.prototype.hasOwnProperty.call(service.pathCache, cacheKey))
-            return service.pathCache[cacheKey];
+        ].filter(name => name !== ""))];
+        const cacheKey = JSON.stringify(names);
+        if (service.iconCache.has(cacheKey))
+            return service.iconCache.get(cacheKey);
 
-        let resolved = "";
-
+        let source = "";
         for (const name of names) {
-            if (!name)
-                continue;
-
             const entry = DesktopEntries.byId(name) ?? DesktopEntries.heuristicLookup(name);
-            const iconName = String(entry?.icon ?? "");
-            if (!iconName)
-                continue;
-            if (iconName.startsWith("/")) {
-                resolved = "file://" + iconName;
+            source = iconSource(String(entry?.icon ?? ""));
+            if (source)
                 break;
-            }
-
-            const path = Quickshell.iconPath(iconName, true);
-            if (path) {
-                resolved = path;
-                break;
-            }
         }
 
-        if (!resolved) {
+        if (!source) {
             for (const name of names) {
-                if (!name)
-                    continue;
-
-                const path = Quickshell.iconPath(name, true);
-                if (path) {
-                    resolved = path;
+                source = Quickshell.iconPath(name, true);
+                if (source)
                     break;
-                }
             }
         }
 
-        // Keep a normal theme icon instead of showing a letter when the
-        // application has no desktop entry or matching app-id icon.
-        if (!resolved)
-            resolved = Quickshell.iconPath(service.fallbackIconName, true);
+        if (!source)
+            source = iconSource(service.fallbackIconName);
 
-        // Ограничение защищает singleton от роста при большом количестве
-        // временных app-id/class, которые могут появляться в течение сессии.
-        if (Object.keys(service.pathCache).length >= service.maxCacheEntries)
-            service.pathCache = ({});
-        service.pathCache[cacheKey] = resolved;
-        return resolved;
+        // Временные app-id не должны бесконечно удерживаться singleton-сервисом.
+        if (service.iconCache.size >= service.maxCacheEntries)
+            service.iconCache.clear();
+        service.iconCache.set(cacheKey, source);
+        return source;
     }
 }

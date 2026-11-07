@@ -4,18 +4,20 @@ import QtQml
 
 QtObject {
     // Базовые размеры Dock и его невидимой области активации.
-    readonly property int gaps: 10
+    readonly property int spacing: 10
     readonly property int panelHeight: 62
-    readonly property int monitorMargin: gaps
-    readonly property int bottomMargin: 2 * gaps
+    readonly property int bottomMargin: 2 * spacing
     readonly property int triggerHeight: 8
-    readonly property int outerPad: 12
-    readonly property int innerPad: 16
-    readonly property int iconSlot: 46
+    readonly property int panelHorizontalMargin: 12
+    readonly property int panelPadding: 16
+    readonly property int iconSlotSize: 46
     readonly property int iconSize: 44
-    readonly property int collapsedStep: 22
-    readonly property int hoverGap: 28
-    readonly property int groupPad: 0
+    readonly property int iconSpacing: 22
+    readonly property int hoverSpacing: 28
+    readonly property int iconPressOffset: 8
+    readonly property int iconTopOverflow: 20
+    readonly property int iconBottomOverflow: 10
+    readonly property int groupHeight: 50
     readonly property int activeWorkspaceGap: 24
     readonly property int activeWorkspacePadding: 8
     // Максимальный визуальный масштаб и небольшой запас для растеризации
@@ -27,12 +29,10 @@ QtObject {
     readonly property int previewWidth: 440
     readonly property int previewHeight: 248
     readonly property int previewTitleHeight: 30
-    readonly property int iconOverflow: 10
-
-    readonly property real capsuleRadius: 8
+    readonly property real panelRadius: 8
     readonly property real previewRadius: 12
     // Цвет хранится как var: QtQml не предоставляет отдельный тип color.
     readonly property var panelColor: Qt.rgba(1, 1, 1, 0.08)
     readonly property int panelBorderWidth: 1
-    readonly property var panelBorderColor: Qt.rgba(1, 1, 1, 0.64)
+    readonly property var panelBorderColor: Qt.rgba(1, 1, 1, 0.32)
 }

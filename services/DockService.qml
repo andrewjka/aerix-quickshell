@@ -1,7 +1,6 @@
 pragma Singleton
 
 import QtQml
-import Quickshell
 import Quickshell.Hyprland
 
 /**
@@ -16,50 +15,40 @@ QtObject {
 
     // Ссылка на текущий snapshot обновляется самим ObjectModel при IPC-событии.
     // Массив удерживает только ссылки на живые HyprlandToplevel-объекты.
-    readonly property var toplevelSnapshot: Hyprland.toplevels.values
+    readonly property var toplevels: Hyprland.toplevels.values
 
     /** Возвращает окна, сгруппированные по workspace и отфильтрованные по монитору. */
     function groupsForScreen(screenName) {
-        const result = [];
+        const groupsByWorkspace = new Map();
 
-        for (const toplevel of service.toplevelSnapshot) {
+        for (const toplevel of service.toplevels) {
             const monitor = toplevel.monitor ?? toplevel.workspace?.monitor;
             if (!toplevel.address || (monitor && monitor.name !== screenName))
                 continue;
 
             const workspace = toplevel.workspace;
             const key = String(workspace?.name ?? workspace?.id ?? "other");
-            let group = result.find(candidate => candidate.key === key);
+            let group = groupsByWorkspace.get(key);
 
             if (!group) {
                 group = {
                     key: key,
-                    id: workspace?.id ?? 0,
-                    monitor: monitor,
+                    workspaceId: workspace?.id ?? 0,
                     windows: []
                 };
-                result.push(group);
+                groupsByWorkspace.set(key, group);
             }
 
             group.windows.push(toplevel);
         }
 
-        result.sort((left, right) => left.id - right.id);
-        return result;
+        return Array.from(groupsByWorkspace.values())
+            .sort((left, right) => left.workspaceId - right.workspaceId);
     }
 
-    /** Находит окно по адресу среди уже подготовленных групп. */
-    function findByAddress(groups, address) {
-        if (!address)
-            return null;
-
-        for (const group of groups) {
-            const toplevel = group.windows.find(item => String(item?.address ?? "") === address);
-            if (toplevel)
-                return toplevel;
-        }
-
-        return null;
+    /** Монитор определяется независимо от наличия окон в его workspace. */
+    function monitorForScreen(screenName) {
+        return Hyprland.monitors.values.find(monitor => monitor.name === screenName) ?? null;
     }
 
     /** Активирует окно через нативный Wayland handle или Hyprland IPC. */
@@ -81,9 +70,8 @@ QtObject {
     }
 
     /** Переключает на соседний существующий workspace текущего монитора. */
-    function stepWorkspace(screenName, direction) {
-        const monitor = Hyprland.monitors.values.find(item => item?.name === screenName);
-        const activeWorkspace = monitor?.activeWorkspace;
+    function switchWorkspace(screenName, direction) {
+        const activeWorkspace = monitorForScreen(screenName)?.activeWorkspace;
         if (!activeWorkspace)
             return false;
 

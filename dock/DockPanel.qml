@@ -7,132 +7,48 @@ import "../core"
 import "../services"
 
 PanelWindow {
-    id: win
+    id: panel
 
     required property var modelData
 
-    // Локальные aliases делают геометрию ниже читаемой и оставляют все tokens
-    // в одном singleton Metrics.
-    readonly property int panelHeight: Metrics.panelHeight
-    readonly property int monitorMargin: Metrics.monitorMargin
-    readonly property int bottomMargin: Metrics.bottomMargin
-    readonly property int triggerHeight: Metrics.triggerHeight
-    readonly property int outerPad: Metrics.outerPad
-    readonly property int innerPad: Metrics.innerPad
-    readonly property int iconSlot: Metrics.iconSlot
-    readonly property int collapsedStep: Metrics.collapsedStep
-    readonly property int hoverGap: Metrics.hoverGap
-    readonly property int groupPad: Metrics.groupPad
-    readonly property int activeWorkspaceGap: Metrics.activeWorkspaceGap
-    readonly property int activeWorkspacePadding: Metrics.activeWorkspacePadding
-    readonly property int maxPanelWidth: Math.floor(modelData.width * 0.75)
-
-    property bool open: false
+    property bool isOpen: false
     property string hoveredAddress: ""
 
-    readonly property real openY: height - capsule.height - bottomMargin
-    readonly property bool panelFullyOpen: open && Math.abs(capsule.y - openY) < 0.5
+    readonly property real openY: height - Metrics.panelHeight - Metrics.bottomMargin
+    readonly property bool interactionEnabled: isOpen && Math.abs(panelSurface.y - openY) < 0.5
+    readonly property int maxPanelWidth: Math.floor(modelData.width * 0.75)
 
-    onPanelFullyOpenChanged: {
-        if (!panelFullyOpen) {
-            hoveredAddress = "";
-            return;
-        }
+    // Общий сервис читает Hyprland, панель рассчитывает раскладку своего экрана.
+    readonly property var groups: DockService.groupsForScreen(modelData.name)
+    readonly property string activeWorkspaceKey: String(
+        DockService.monitorForScreen(modelData.name)?.activeWorkspace?.name ?? "")
+    readonly property int windowCount: groups.reduce((count, group) => count + group.windows.length, 0)
 
-        // Курсор мог оказаться над иконкой ещё во время выезда панели. В этом
-        // случае MouseArea уже содержит курсор, но onEntered повторно не придёт.
+    // Неподвижная часть ширины: первый слот, отступы активного workspace и
+    // боковой запас для hover. Остальные окна добавляют только шаг раскладки.
+    readonly property real fixedContentWidth: groups.length === 0 ? 0
+        : Metrics.iconSlotSize + 2 * Metrics.activeWorkspacePadding
+          + Math.min(2, groups.length - 1) * Metrics.activeWorkspaceGap
+          + 2 * Metrics.hoverSpacing
+    readonly property real iconSpacing: windowCount <= 1 ? Metrics.iconSpacing
+        : Math.max(8, Math.min(Metrics.iconSpacing,
+            (maxPanelWidth - 2 * Metrics.panelPadding - fixedContentWidth) / (windowCount - 1)))
+    readonly property real contentWidth: fixedContentWidth + Math.max(0, windowCount - 1) * iconSpacing
+    readonly property real panelWidth: Math.min(maxPanelWidth, Math.max(136, contentWidth + 2 * Metrics.panelPadding))
+
+    // Иконка уже содержит окно: дополнительный поиск по всем группам не нужен.
+    readonly property DockIcon hoveredIcon: {
         for (let i = 0; i < groupRepeater.count; i++) {
-            const group = groupRepeater.itemAt(i);
-            const address = group?.pointerAddressUnderCursor() ?? "";
-            if (address) {
-                hoveredAddress = address;
-                return;
-            }
-        }
-    }
-
-    // Одна панель получает уже сгруппированный snapshot из общего сервиса.
-    // Модель окон панели: сервис читает Hyprland IPC, а DockPanel отвечает
-    // только за layout текущего монитора.
-    readonly property var groups: {
-        DockService.toplevelSnapshot;
-        return DockService.groupsForScreen(modelData.name);
-    }
-
-    readonly property int totalWindowCount: {
-        let count = 0;
-        for (const group of groups)
-            count += group.windows.length;
-        return count;
-    }
-
-    // При переполнении шаг автоматически уменьшается, но боковой hover-buffer
-    // остаётся зарезервированным, чтобы расширение не ломало края Dock.
-    readonly property real layoutHoverBuffer: hoverGap
-    readonly property real layoutHoverGap: hoverGap
-    readonly property real layoutCollapsedStep: {
-        if (groups.length === 0 || totalWindowCount <= 1)
-            return collapsedStep;
-
-        const fixedWidth = 2 * groupPad * groups.length
-                           + iconSlot
-                           + 2 * activeWorkspacePadding
-                           + Math.min(2, groups.length - 1) * activeWorkspaceGap
-                           + 2 * layoutHoverBuffer;
-        const available = maxPanelWidth - 2 * innerPad - fixedWidth;
-        const slots = totalWindowCount - 1;
-        return Math.max(8, Math.min(collapsedStep, available / slots));
-    }
-    readonly property real groupGap: layoutCollapsedStep - iconSlot
-
-    function groupWidth(count) {
-        return 2 * groupPad + iconSlot + Math.max(0, count - 1) * layoutCollapsedStep;
-    }
-
-    readonly property real contentWidth: {
-        if (groups.length === 0)
-            return 0;
-        let width = Math.max(0, groups.length - 1) * groupGap;
-        for (const group of groups)
-            width += groupWidth(group.windows.length);
-        const edgeGroups = Math.min(2, groups.length - 1);
-        return width + 2 * activeWorkspacePadding + edgeGroups * activeWorkspaceGap + 2 * layoutHoverBuffer;
-    }
-
-    // Панель занимает не больше 75% ширины монитора, даже при большом числе окон.
-    readonly property real panelWidth: Math.min(maxPanelWidth, Math.max(136, contentWidth + 2 * innerPad))
-
-    readonly property string activeWorkspaceKey: String(groups[0]?.monitor?.activeWorkspace?.name ?? "")
-    readonly property real hoveredIconCenterX: {
-        for (let i = 0; i < groupRepeater.count; i++) {
-            const group = groupRepeater.itemAt(i);
-            if (group && group.hoveredIndex >= 0)
-                return capsule.x
-                       + groupsFlickable.x
-                       - groupsFlickable.contentX
-                       + groupsRow.x
-                       + group.hoveredIconCenterX;
-        }
-        return capsule.x + panelWidth / 2;
-    }
-    readonly property var hoveredIconItem: {
-        for (let i = 0; i < groupRepeater.count; i++) {
-            const group = groupRepeater.itemAt(i);
-            if (group && group.hoveredIndex >= 0)
+            const group = groupRepeater.itemAt(i) as DockGroup;
+            if (group?.hoveredIcon)
                 return group.hoveredIcon;
         }
         return null;
     }
-    readonly property var hoveredToplevel: {
-        DockService.toplevelSnapshot;
-        return DockService.findByAddress(win.groups, win.hoveredAddress);
-    }
 
     screen: modelData
-    anchors {
-        bottom: true
-    }
-    implicitWidth: Math.ceil(capsule.width) + 2 * outerPad
+    anchors.bottom: true
+    implicitWidth: Math.ceil(panelSurface.width) + 2 * Metrics.panelHorizontalMargin
     implicitHeight: 92
     color: "transparent"
     focusable: false
@@ -140,77 +56,85 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aerix:dock-panel"
 
-    // Капсула полностью скрыта за нижним краем. Невидимая полоса у края
-    // вызывает её появление; область ввода следует за движущейся капсулой.
+    // Область ввода следует за выезжающей панелью. В скрытом состоянии
+    // остаётся только невидимая полоса активации у нижнего края экрана.
     mask: Region {
-        x: 0
-        y: Math.min(win.height - win.triggerHeight, Math.max(0, capsule.y - win.triggerHeight))
-        width: win.width
-        height: win.height - y
+        y: Math.min(panel.height - Metrics.triggerHeight, Math.max(0, panelSurface.y - Metrics.triggerHeight))
+        width: panel.width
+        height: panel.height - y
     }
 
-    // Закрытие сбрасывает адрес до начала движения, чтобы preview не ехал
-    // вниз вместе с капсулой.
+    /** Сбрасывает preview до начала закрывающей анимации панели. */
     function closePanel() {
-        win.open = false;
-        win.hoveredAddress = "";
+        hoveredAddress = "";
+        isOpen = false;
     }
 
-    Timer {
-        id: clickHoldTimer
-        interval: Motion.panelCloseDelay
-        onTriggered: {
-            if (!panelHover.hovered)
-                closePanel();
-        }
-    }
-
-    // Все операции фокусировки собраны в DockService; DockPanel остаётся UI.
-    HoverHandler {
-        id: panelHover
-        onHoveredChanged: {
-            if (hovered) {
-                win.open = true;
-            } else {
-                win.hoveredAddress = "";
-                if (!clickHoldTimer.running)
-                    closePanel();
+    /** Восстанавливает hover, если курсор попал на иконку ещё во время выезда. */
+    function restoreHover() {
+        hoveredAddress = "";
+        if (!interactionEnabled)
+            return;
+        for (let i = 0; i < groupRepeater.count; i++) {
+            const group = groupRepeater.itemAt(i) as DockGroup;
+            const address = group?.addressUnderPointer() ?? "";
+            if (address) {
+                hoveredAddress = address;
+                return;
             }
         }
     }
 
-    function stepWorkspaceFromWheel(direction) {
-        if (DockService.stepWorkspace(modelData.name, direction))
-            return;
-        activeOutline.edgeNudgeDirection = direction < 0 ? -1 : 1;
-        activeOutline.edgeNudgeProgress = 0;
-        edgeNudgeAnimation.restart();
+    /** Переключает workspace или запускает обратную связь на краю списка. */
+    function switchWorkspace(direction) {
+        if (!DockService.switchWorkspace(modelData.name, direction))
+            workspaceIndicator.nudge(direction);
     }
 
-    // Preview создаётся только при реальном наведении. После закрытия панели
-    // тяжёлый ScreencopyView уничтожается вместе с PopupWindow.
-    LazyLoader {
-        id: previewLoader
-        active: win.open && win.hoveredToplevel !== null
+    onInteractionEnabledChanged: restoreHover()
 
-        component: WindowPreview {
-            panelWindow: win
-            hoveredToplevel: win.hoveredToplevel
-            hoveredIconItem: win.hoveredIconItem
-            panelOpen: win.open
-            capsuleY: capsule.y
+    Timer {
+        id: closeDelay
+        interval: Motion.panelCloseDelay
+        onTriggered: {
+            if (!panelHover.hovered)
+                panel.closePanel();
         }
     }
 
-    // Основная поверхность Dock. Shadow включается только во время показа,
-    // поэтому скрытая капсула не оставляет дорогой эффект на сцене.
+    HoverHandler {
+        id: panelHover
+        onHoveredChanged: {
+            if (hovered) {
+                panel.isOpen = true;
+            } else {
+                panel.hoveredAddress = "";
+                if (!closeDelay.running)
+                    panel.closePanel();
+            }
+        }
+    }
+
+    // Popup и захват кадра существуют только во время наведения.
+    LazyLoader {
+        active: panel.isOpen && panel.hoveredIcon !== null
+
+        component: WindowPreview {
+            panelWindow: panel
+            toplevel: panel.hoveredIcon?.toplevel ?? null
+            iconItem: panel.hoveredIcon
+            panelTop: panelSurface.y
+        }
+    }
+
+    // Поверхность Dock и анимации её появления и изменения ширины.
     Rectangle {
-        id: capsule
-        x: win.outerPad
-        y: win.open ? win.height - height - win.bottomMargin : win.height
-        width: win.panelWidth
-        height: win.panelHeight
-        radius: Metrics.capsuleRadius
+        id: panelSurface
+        x: Metrics.panelHorizontalMargin
+        y: panel.isOpen ? panel.openY : panel.height
+        width: panel.panelWidth
+        height: Metrics.panelHeight
+        radius: Metrics.panelRadius
         color: Metrics.panelColor
         border.width: Metrics.panelBorderWidth
         border.color: Metrics.panelBorderColor
@@ -224,220 +148,103 @@ PanelWindow {
 
         Text {
             anchors.centerIn: parent
-            visible: win.groups.length === 0
+            visible: panel.groups.length === 0
             text: "Aeris"
             color: "#e6ffffff"
             font.pixelSize: 16
             font.weight: Font.Medium
         }
 
-        // Flickable клипует плотную раскладку и даёт горизонтальное перемещение
-        // только когда количество окон действительно не помещается.
+        // При переполнении ряд прокручивается горизонтально. Верхний и нижний
+        // запас оставляет место увеличенной иконке и смещению при нажатии.
         Flickable {
-            id: groupsFlickable
-            x: win.innerPad - win.layoutHoverBuffer
-            y: -20
-            width: parent.width - 2 * win.innerPad + 2 * win.layoutHoverBuffer
-            // Leave the lower monitor-margin area available for the enlarged
-            // icon and the 8 px press displacement.
-            height: parent.height + 20 + Metrics.iconOverflow
-            visible: win.groups.length > 0
+            x: Metrics.panelPadding - Metrics.hoverSpacing
+            y: -Metrics.iconTopOverflow
+            width: parent.width - 2 * Metrics.panelPadding + 2 * Metrics.hoverSpacing
+            height: parent.height + Metrics.iconTopOverflow + Metrics.iconBottomOverflow
+            visible: panel.groups.length > 0
             clip: true
-            contentWidth: groupsRow.width + 2 * win.layoutHoverBuffer
+            contentWidth: workspaceRow.width + 2 * Metrics.hoverSpacing
             contentHeight: height
             flickableDirection: Flickable.HorizontalFlick
             boundsBehavior: Flickable.StopAtBounds
 
-            // The wheel target is inside this Flickable (usually a DockIcon),
-            // so keep the handler on the same input subtree and block the
-            // Flickable's own horizontal scrolling.
+            // Обработчик находится в том же дереве ввода, что и иконки, и
+            // перехватывает колесо у Flickable для переключения workspace.
             WheelHandler {
-                id: workspaceWheel
                 acceptedButtons: Qt.NoButton
                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
                 orientation: Qt.Vertical
                 blocking: true
-                property int deltaAccumulator: 0
+                property int wheelDelta: 0
 
                 onWheel: wheel => {
-                    if (!win.panelFullyOpen)
+                    if (!panel.interactionEnabled)
                         return;
-
-                    deltaAccumulator += wheel.angleDelta.y;
-                    while (deltaAccumulator >= 120) {
-                        deltaAccumulator -= 120;
-                        // Inverted: wheel up moves to the next workspace.
-                        win.stepWorkspaceFromWheel(1);
-                    }
-                    while (deltaAccumulator <= -120) {
-                        deltaAccumulator += 120;
-                        // Inverted: wheel down moves to the previous workspace.
-                        win.stepWorkspaceFromWheel(-1);
+                    wheelDelta += wheel.angleDelta.y;
+                    while (Math.abs(wheelDelta) >= 120) {
+                        const direction = Math.sign(wheelDelta);
+                        wheelDelta -= direction * 120;
+                        // Колесо вверх выбирает следующий workspace.
+                        panel.switchWorkspace(direction);
                     }
                 }
             }
 
-            // Обводка объявлена раньше ряда, поэтому естественно рисуется под
-            // иконками без ручного управления z-порядком.
-            Rectangle {
-                id: activeOutline
-
-                readonly property var targetGroup: {
-                    const key = win.activeWorkspaceKey;
+            // Порядок объявления рисует обводку под иконками без ручных z.
+            WorkspaceIndicator {
+                id: workspaceIndicator
+                groupsRow: workspaceRow
+                targetGroup: {
                     for (let i = 0; i < groupRepeater.count; i++) {
-                        const item = groupRepeater.itemAt(i);
-                        if (item?.groupData.key === key)
-                            return item;
+                        const group = groupRepeater.itemAt(i) as DockGroup;
+                        if (group?.isActiveWorkspace)
+                            return group;
                     }
                     return null;
-                }
-
-                property var displayedGroup: null
-                property real slideProgress: 1
-                property real slideFromX: 0
-                property real slideFromWidth: 0
-                property real verticalExpansion: 0
-                property real edgeNudgeProgress: 0
-                property real edgeNudgeDirection: 1
-                readonly property real edgeNudge: {
-                    const progress = Math.max(0, Math.min(1, edgeNudgeProgress));
-                    return edgeNudgeDirection * 8 * Math.sin(Math.PI * progress);
-                }
-
-                readonly property real destinationX: displayedGroup
-                                                    ? groupsRow.x
-                                                      + displayedGroup.x
-                                                      + displayedGroup.leftWorkspaceGap
-                                                      + 2
-                                                    : 0
-                readonly property real destinationWidth: displayedGroup
-                                                        ? displayedGroup.width
-                                                          - displayedGroup.leftWorkspaceGap
-                                                          - displayedGroup.rightWorkspaceGap
-                                                          - 4
-                                                        : 0
-
-                onTargetGroupChanged: {
-                    const shouldSlide = displayedGroup !== null && targetGroup !== null;
-                    capsuleTransition.stop();
-                    slideAnimation.stop();
-                    slideFromX = x;
-                    slideFromWidth = width;
-                    slideProgress = shouldSlide ? 0 : 1;
-                    displayedGroup = targetGroup;
-                    if (shouldSlide)
-                        capsuleTransition.start();
-                    else
-                        verticalExpansion = 0;
-                }
-
-                visible: displayedGroup !== null
-                x: slideFromX + (destinationX - slideFromX) * slideProgress + edgeNudge
-                y: groupsRow.y + 11 - verticalExpansion / 2
-                width: slideFromWidth + (destinationWidth - slideFromWidth) * slideProgress
-                height: 26 + verticalExpansion
-                radius: Metrics.capsuleRadius
-                color: "transparent"
-                border.width: 0.5
-                border.pixelAligned: false
-                antialiasing: true
-                border.color: "#e8ffffff"
-
-                SequentialAnimation {
-                    id: capsuleTransition
-
-                    ParallelAnimation {
-                        StandardAnimation {
-                            target: activeOutline
-                            property: "verticalExpansion"
-                            from: 0
-                            to: 20
-                            duration: Motion.defaultDuration
-                        }
-
-                        StandardAnimation {
-                            id: slideAnimation
-                            target: activeOutline
-                            property: "slideProgress"
-                            from: 0
-                            to: 1
-                            duration: Motion.defaultDuration
-                        }
-                    }
-
-                    StandardAnimation {
-                        target: activeOutline
-                        property: "verticalExpansion"
-                        from: 20
-                        to: 0
-                        duration: Motion.defaultDuration
-                    }
-                }
-
-                // Один прогресс за 512 мс уводит капсулу к краю и возвращает
-                // обратно; синус формирует обе фазы без коротких анимаций.
-                StandardAnimation {
-                    id: edgeNudgeAnimation
-                    target: activeOutline
-                    property: "edgeNudgeProgress"
-                    from: 0
-                    to: 1
-                    duration: Motion.defaultDuration
                 }
             }
 
             Row {
-                id: groupsRow
-                x: win.layoutHoverBuffer + Math.max(0, (capsule.width - 2 * win.innerPad - width) / 2)
+                id: workspaceRow
+                x: Metrics.hoverSpacing + Math.max(0, (panelSurface.width - 2 * Metrics.panelPadding - width) / 2)
                 y: 26
-                spacing: win.groupGap
-                height: 50
+                spacing: panel.iconSpacing - Metrics.iconSlotSize
+                height: Metrics.groupHeight
 
                 Repeater {
                     id: groupRepeater
-                    model: win.groups
+                    model: panel.groups
 
                     delegate: DockGroup {
-                        groupCount: win.groups.length
-                        hoveredAddress: win.hoveredAddress
-                        activeWorkspaceKey: win.activeWorkspaceKey
-                        iconSlot: win.iconSlot
-                        interactionEnabled: win.panelFullyOpen
-                        layoutCollapsedStep: win.layoutCollapsedStep
-                        layoutHoverGap: win.layoutHoverGap
-                        groupPad: win.groupPad
-                        activeWorkspaceGap: win.activeWorkspaceGap
-                        activeWorkspacePadding: win.activeWorkspacePadding
-                        activeOnHoveredLeft: !isCurrent && hoveredIndex === 0
-                                              && index > 0
-                                              && win.groups[index - 1].key === win.activeWorkspaceKey
-                        activeOnHoveredRight: !isCurrent
-                                               && hoveredIndex === modelData.windows.length - 1
-                                               && index < win.groups.length - 1
-                                               && win.groups[index + 1].key === win.activeWorkspaceKey
+                        groupCount: panel.groups.length
+                        hoveredAddress: panel.hoveredAddress
+                        activeWorkspaceKey: panel.activeWorkspaceKey
+                        interactionEnabled: panel.interactionEnabled
+                        iconSpacing: panel.iconSpacing
+                        activeWorkspaceOnLeft: !isActiveWorkspace && index > 0
+                            && panel.groups[index - 1].key === panel.activeWorkspaceKey
+                        activeWorkspaceOnRight: !isActiveWorkspace && index < panel.groups.length - 1
+                            && panel.groups[index + 1].key === panel.activeWorkspaceKey
 
-                        onHoverEntered: function(toplevel) {
-                            if (win.panelFullyOpen)
-                                win.hoveredAddress = String(toplevel?.address ?? "");
+                        onHoverEntered: toplevel => {
+                            if (panel.interactionEnabled)
+                                panel.hoveredAddress = String(toplevel?.address ?? "");
                         }
-                        onHoverExited: function(toplevel) {
-                            if (win.hoveredAddress === String(toplevel?.address ?? ""))
-                                win.hoveredAddress = "";
+                        onHoverExited: toplevel => {
+                            if (panel.hoveredAddress === String(toplevel?.address ?? ""))
+                                panel.hoveredAddress = "";
                         }
-                        onActivated: function(toplevel) {
-                            if (!win.panelFullyOpen)
+                        onActivated: toplevel => {
+                            if (!panel.interactionEnabled)
                                 return;
-
-                            if (!isCurrent) {
-                                win.open = true;
-                                clickHoldTimer.restart();
-                            }
+                            if (!isActiveWorkspace)
+                                closeDelay.restart();
                             DockService.focusWindow(toplevel);
                         }
                     }
                 }
             }
-
         }
     }
 }
