@@ -35,7 +35,7 @@ PopupWindow {
         ? Metrics.previewWidth
         : Metrics.previewHeight * contentAspect
     implicitHeight: implicitWidth / contentAspect + Metrics.previewTitleHeight
-    color: "transparent"
+    color: Theme.transparentColor
     visible: toplevel !== null && iconItem !== null
 
     /** Пересчитывает popup anchor только при изменении его входной геометрии. */
@@ -125,14 +125,14 @@ PopupWindow {
             property: "scale"
             from: 0.12
             to: 1
-            duration: Motion.defaultDuration
+            duration: Motion.standardDurationMs
         }
         StandardAnimation {
             target: previewFrame
             property: "opacity"
             from: 0
             to: 1
-            duration: Motion.defaultDuration
+            duration: Motion.standardDurationMs
         }
     }
 
@@ -140,7 +140,7 @@ PopupWindow {
         id: previewFrame
         anchors.fill: parent
         radius: Metrics.previewRadius
-        color: "#ff1b2431"
+        color: Theme.floatingSurfaceBackgroundColor
         clip: true
         transformOrigin: Item.Bottom
 
@@ -188,7 +188,7 @@ PopupWindow {
             y: 0
             width: parent.width
             height: Metrics.previewTitleHeight
-            color: "#e61b2431"
+            color: Theme.windowPreviewTitleBackgroundColor
             radius: Metrics.previewRadius
 
             Image {
@@ -215,7 +215,7 @@ PopupWindow {
                 text: String(preview.toplevel?.title
                              ?? preview.toplevel?.lastIpcObject?.title
                              ?? "Preview")
-                color: "#f2ffffff"
+                color: Theme.glassTextColor
                 font.pixelSize: 12
                 elide: Text.ElideRight
             }
@@ -225,9 +225,9 @@ PopupWindow {
     Rectangle {
         anchors.fill: parent
         radius: Metrics.previewRadius
-        color: "transparent"
+        color: Theme.transparentColor
         border.width: 1
-        border.color: "#66ffffff"
+        border.color: Theme.selectionOutlineColor
         scale: previewFrame.scale
         opacity: previewFrame.opacity
         transformOrigin: Item.Bottom

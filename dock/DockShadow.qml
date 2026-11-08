@@ -33,7 +33,7 @@ PanelShadowWindow {
         // Тень повторяет тот же scale и origin, что и фактическая Dock surface.
         scale: shadowWindow.sourceSurface?.scale ?? 1
         transformOrigin: shadowWindow.sourceSurface?.transformOrigin ?? Item.Bottom
-        color: "transparent"
+        color: Theme.transparentColor
         antialiasing: true
     }
 }

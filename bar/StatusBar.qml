@@ -16,7 +16,7 @@ PanelWindow {
         right: true
     }
     implicitHeight: Metrics.statusBarHeight
-    color: "transparent"
+    color: Theme.transparentColor
     // Обычная панель не должна забирать клавиатурный фокус у приложения.
     // Интерактивные popup управляют вводом независимо от layer-shell панели.
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
@@ -40,7 +40,8 @@ PanelWindow {
         topRightRadius: 0
         bottomLeftRadius: Metrics.panelRadius
         bottomRightRadius: Metrics.panelRadius
-        color: Metrics.panelColor
+        // Status Bar использует собственную палитру Theme.
+        color: Theme.statusBarBackgroundColor
         antialiasing: true
 
         // Этот обработчик находится ниже интерактивных виджетов. Пока popup

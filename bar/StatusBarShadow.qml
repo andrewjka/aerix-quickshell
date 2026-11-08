@@ -26,7 +26,7 @@ PanelShadowWindow {
         topRightRadius: 0
         bottomLeftRadius: Metrics.panelRadius
         bottomRightRadius: Metrics.panelRadius
-        color: "transparent"
+        color: Theme.transparentColor
         antialiasing: true
     }
 }

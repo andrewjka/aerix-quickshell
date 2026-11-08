@@ -29,9 +29,9 @@ PanelWindow {
     readonly property int rowHeight: 32
     readonly property int revealTravel: 24
     readonly property real springScaleOverflow: Math.max(0,
-        Motion.panelSpring.maximumScale - 1)
+        Motion.surfaceSpring.maximumScale - 1)
     readonly property real springProgressOverflow: Math.max(0,
-        Motion.panelSpring.maximumProgress - 1)
+        Motion.surfaceSpring.maximumProgress - 1)
     readonly property int shadowMargin: Math.ceil(Metrics.panelShadowRadius) + 1
     // transformOrigin равен Top: масштаб растит content целиком вниз, а не
     // поровну в обе стороны. Начальная фаза раскрытия, напротив, уходит вверх.
@@ -91,7 +91,7 @@ PanelWindow {
     margins.top: popupTop - topRenderMargin
     implicitWidth: surfaceWidth + 2 * horizontalRenderMargin
     implicitHeight: surfaceHeight + topRenderMargin + bottomRenderMargin
-    color: "transparent"
+    color: Theme.transparentColor
     WlrLayershell.namespace: "aerix:keyboard-layout"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: expanded ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
@@ -100,9 +100,9 @@ PanelWindow {
     // Одна прерываемая анимация: повторный клик меняет цель от текущего значения.
     Behavior on reveal {
         NumberAnimation {
-            duration: Motion.panelSpring.duration
-            easing.type: Motion.panelSpring.easingType
-            easing.bezierCurve: Motion.panelSpring.curve
+            duration: Motion.surfaceSpring.durationMs
+            easing.type: Motion.surfaceSpring.easingType
+            easing.bezierCurve: Motion.surfaceSpring.bezierCurve
             onRunningChanged: {
                 if (!running && !popup.expanded && popup.reveal === 0)
                     popup.dismissed();
@@ -215,7 +215,7 @@ PanelWindow {
             radius: popupFrame.radius
             scale: popupFrame.scale
             transformOrigin: popupFrame.transformOrigin
-            color: "transparent"
+            color: Theme.transparentColor
             antialiasing: true
         }
     }
@@ -230,10 +230,10 @@ PanelWindow {
         width: popup.surfaceWidth
         height: popup.surfaceHeight
         radius: Metrics.panelRadius
-        color: Metrics.panelColor
+        color: Theme.floatingSurfaceBackgroundColor
         antialiasing: true
-        scale: Motion.panelSpring.initialScale
-            + (1 - Motion.panelSpring.initialScale) * popup.reveal
+        scale: Motion.surfaceSpring.startScale
+            + (1 - Motion.surfaceSpring.startScale) * popup.reveal
         transformOrigin: Item.Top
         opacity: Math.max(0, Math.min(1, popup.reveal))
 
@@ -296,13 +296,13 @@ PanelWindow {
                         anchors.leftMargin: 1
                         anchors.rightMargin: 1
                         radius: Metrics.panelRadius - 2
-                        color: "#1fffffff"
+                        color: Theme.hoverOverlayColor
                         opacity: rowMouse.containsMouse ? 1 : 0
                         antialiasing: true
 
                         Behavior on opacity {
                             StandardAnimation {
-                                duration: Motion.defaultDuration
+                                duration: Motion.standardDurationMs
                             }
                         }
                     }
@@ -314,14 +314,15 @@ PanelWindow {
                         anchors.leftMargin: 1
                         anchors.rightMargin: 1
                         radius: Metrics.panelRadius - 2
-                        color: row.navigationCurrent ? "#26ffffff" : "transparent"
+                        color: row.navigationCurrent ? Theme.hoverOverlayColor
+                                                     : Theme.transparentColor
                         border.width: row.navigationCurrent && !row.selected ? 0.5 : 0
                         border.pixelAligned: false
-                        border.color: "#99ffffff"
+                        border.color: Theme.glassTextColor
                         antialiasing: true
 
                         Behavior on color {
-                            ColorAnimation { duration: Motion.defaultDuration }
+                            ColorAnimation { duration: Motion.standardDurationMs }
                         }
                     }
 
@@ -331,10 +332,10 @@ PanelWindow {
                         anchors.leftMargin: 1
                         anchors.rightMargin: 1
                         radius: Metrics.panelRadius - 2
-                        color: "transparent"
+                        color: Theme.transparentColor
                         border.width: row.selected ? 0.5 : 0
                         border.pixelAligned: false
-                        border.color: "#e8ffffff"
+                        border.color: Theme.selectionOutlineColor
                         antialiasing: true
                     }
 
@@ -344,7 +345,7 @@ PanelWindow {
                         anchors.leftMargin: Metrics.spacing
                         anchors.verticalCenter: parent.verticalCenter
                         text: row.modelData.label
-                        color: "#f2ffffff"
+                        color: Theme.glassTextColor
                         font.pixelSize: Metrics.statusBarFontSize
                         font.weight: row.selected ? Font.DemiBold : Font.Medium
                     }
@@ -357,7 +358,7 @@ PanelWindow {
                         horizontalAlignment: Text.AlignRight
                         elide: Text.ElideRight
                         text: row.modelData.name
-                        color: "#b3ffffff"
+                        color: Theme.glassTextColor
                         font.pixelSize: 13
                     }
                     MouseArea {
@@ -382,7 +383,7 @@ PanelWindow {
                 width: layoutList.width
                 visible: KeyboardLayoutService.error.length > 0
                 text: KeyboardLayoutService.error
-                color: "#f0b2b2"
+                color: Theme.errorColor
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2

@@ -5,7 +5,7 @@ import "../services"
 // Виджет только отображает время: источник и частота обновления общие.
 Text {
     text: ClockService.timeText
-    color: "#e6ffffff"
+    color: Theme.primaryTextColor
     font.pixelSize: Metrics.statusBarFontSize
     font.weight: Font.Medium
     horizontalAlignment: Text.AlignHCenter

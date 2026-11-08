@@ -27,8 +27,8 @@ PanelWindow {
 
     readonly property real openY: height - Metrics.panelHeight - Metrics.bottomMargin
     readonly property bool interactionEnabled: isOpen && Math.abs(panelSurface.y - openY) < 0.5
-    readonly property real revealScale: Motion.panelSpring.initialScale
-        + (1 - Motion.panelSpring.initialScale) * reveal
+    readonly property real revealScale: Motion.surfaceSpring.startScale
+        + (1 - Motion.surfaceSpring.startScale) * reveal
     readonly property real revealOpacity: Math.max(0, Math.min(1, reveal))
 
     DockLayout {
@@ -59,7 +59,7 @@ PanelWindow {
     anchors.bottom: true
     implicitWidth: Math.ceil(panelSurface.width) + 2 * Metrics.panelHorizontalMargin
     implicitHeight: 92
-    color: "transparent"
+    color: Theme.transparentColor
     focusable: false
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
@@ -120,9 +120,9 @@ PanelWindow {
 
     Behavior on reveal {
         NumberAnimation {
-            duration: Motion.panelSpring.duration
-            easing.type: Motion.panelSpring.easingType
-            easing.bezierCurve: Motion.panelSpring.curve
+            duration: Motion.surfaceSpring.durationMs
+            easing.type: Motion.surfaceSpring.easingType
+            easing.bezierCurve: Motion.surfaceSpring.bezierCurve
         }
     }
 
@@ -130,7 +130,7 @@ PanelWindow {
 
     Timer {
         id: closeDelay
-        interval: Motion.panelCloseDelay
+        interval: Motion.dockCloseDelayMs
         onTriggered: {
             if (!panelHover.hovered)
                 panel.closePanel();
@@ -170,7 +170,7 @@ PanelWindow {
         width: panel.panelWidth
         height: Metrics.panelHeight
         radius: Metrics.panelRadius
-        color: Metrics.panelColor
+        color: Theme.floatingSurfaceBackgroundColor
         scale: panel.revealScale
         opacity: panel.revealOpacity
         transformOrigin: Item.Bottom
@@ -194,7 +194,7 @@ PanelWindow {
             anchors.centerIn: parent
             visible: panel.groups.length === 0
             text: "Aerix"
-            color: "#e6ffffff"
+            color: Theme.glassTextColor
             font.pixelSize: 16
             font.weight: Font.Medium
         }

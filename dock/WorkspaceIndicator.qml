@@ -54,10 +54,10 @@ Rectangle {
     width: slideStartWidth + (destinationWidth - slideStartWidth) * slideProgress
     height: 26 + verticalExpansion
     radius: Metrics.panelRadius
-    color: "transparent"
+    color: Theme.transparentColor
     border.width: 0.5
     border.pixelAligned: false
-    border.color: "#e8ffffff"
+    border.color: Theme.selectionOutlineColor
     antialiasing: true
 
     // Сначала переносим и расширяем обводку, затем возвращаем её высоту.
@@ -71,21 +71,21 @@ Rectangle {
                 // Без from анимация продолжает текущую высоту после
                 // прерывания, вместо мгновенного возврата к нулю.
                 to: 20
-                duration: Motion.defaultDuration
+                duration: Motion.standardDurationMs
             }
             StandardAnimation {
                 target: indicator
                 property: "slideProgress"
                 from: 0
                 to: 1
-                duration: Motion.defaultDuration
+                duration: Motion.standardDurationMs
             }
         }
         StandardAnimation {
             target: indicator
             property: "verticalExpansion"
             to: 0
-            duration: Motion.defaultDuration
+            duration: Motion.standardDurationMs
         }
     }
 
@@ -96,6 +96,6 @@ Rectangle {
         property: "nudgeProgress"
         from: 0
         to: 1
-        duration: Motion.defaultDuration
+        duration: Motion.standardDurationMs
     }
 }

@@ -16,7 +16,7 @@ PanelWindow {
     property real shadowOpacity: 1
 
     screen: targetScreen
-    color: "transparent"
+    color: Theme.transparentColor
     focusable: false
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None

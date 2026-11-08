@@ -31,7 +31,7 @@ Item {
             bottomLeftRadius: shadow.sourceItem.bottomLeftRadius
             bottomRightRadius: shadow.sourceItem.bottomRightRadius
             blur: Math.max(0, Metrics.panelShadowRadius)
-            color: Metrics.panelShadowColor
+            color: Theme.panelShadowColor
         }
     }
 
@@ -52,7 +52,7 @@ Item {
             topRightRadius: shadow.sourceItem.topRightRadius
             bottomLeftRadius: shadow.sourceItem.bottomLeftRadius
             bottomRightRadius: shadow.sourceItem.bottomRightRadius
-            color: "white"
+            color: Theme.shadowMaskColor
             antialiasing: true
         }
     }
