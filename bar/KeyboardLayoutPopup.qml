@@ -15,7 +15,7 @@ PanelWindow {
     required property var barWindow
     required property Item anchorItem
     property int testLayoutCount: 0
-    property int pendingIndex: -1
+    property int pendingSelectionToken: 0
     property int selectedTestIndex: -1
     property bool expanded: false
     property real reveal: expanded ? 1 : 0
@@ -27,11 +27,15 @@ PanelWindow {
     // По пикселю внутри viewport для сглаженного края обводки.
     readonly property int listHeight: Math.min(5, Math.max(1, entries.length)) * rowHeight
         + Math.max(0, Math.min(5, entries.length) - 1) * Metrics.popupRowSpacing + 2
-    readonly property int renderMargin: Math.ceil(Metrics.panelShadowRadius) + 9
     readonly property int surfaceWidth: Math.min(196,
         screen.width - 2 * Metrics.statusBarHorizontalMargin)
     readonly property int surfaceHeight: listHeight + 2 * Metrics.spacing
         + (errorLabel.visible ? errorLabel.implicitHeight + Metrics.spacing : 0)
+    // Layer-surface включает запас и под тень, и под maximum scale пружины.
+    // transformOrigin находится сверху, поэтому вертикальный overflow равен
+    // полной разнице высоты, а не её половине.
+    readonly property int renderMargin: Math.ceil(Metrics.panelShadowRadius) + 1
+        + Math.ceil(surfaceHeight * (Motion.panelSpring.maximumScale - 1))
     readonly property real surfaceX: {
         const barWidth = barWindow.width;
         // mapToItem не подписывает binding на перемещения якоря.
@@ -61,8 +65,10 @@ PanelWindow {
 
     // Одна прерываемая анимация: повторный клик меняет цель от текущего значения.
     Behavior on reveal {
-        StandardAnimation {
-            duration: Motion.defaultDuration
+        NumberAnimation {
+            duration: Motion.panelSpring.duration
+            easing.type: Motion.panelSpring.easingType
+            easing.bezierCurve: Motion.panelSpring.curve
             onRunningChanged: {
                 if (!running && !popup.expanded && popup.reveal === 0)
                     popup.dismissed();
@@ -70,7 +76,10 @@ PanelWindow {
         }
     }
 
-    function dismiss() { expanded = false; }
+    function dismiss() {
+        pendingSelectionToken = 0;
+        expanded = false;
+    }
     function toggle() { expanded = !expanded; }
 
     function selectLayout(row) {
@@ -84,7 +93,7 @@ PanelWindow {
         if (entry.index === KeyboardLayoutService.activeIndex) {
             dismiss();
         } else if (KeyboardLayoutService.select(entry.index)) {
-            pendingIndex = entry.index;
+            pendingSelectionToken = KeyboardLayoutService.pendingSelectionToken;
         }
     }
 
@@ -105,15 +114,11 @@ PanelWindow {
 
     Connections {
         target: KeyboardLayoutService
-        function onActiveIndexChanged() {
-            if (popup.pendingIndex >= 0
-                    && popup.pendingIndex === KeyboardLayoutService.activeIndex
-                    && !KeyboardLayoutService.commandPending)
-                popup.dismiss();
-        }
-        function onCommandPendingChanged() {
-            if (popup.pendingIndex >= 0 && !KeyboardLayoutService.commandPending
-                    && popup.pendingIndex === KeyboardLayoutService.activeIndex)
+        function onLayoutSelectionResolved(token, confirmed) {
+            if (popup.pendingSelectionToken !== token)
+                return;
+            popup.pendingSelectionToken = 0;
+            if (confirmed)
                 popup.dismiss();
         }
     }
@@ -147,24 +152,19 @@ PanelWindow {
     Rectangle {
         id: popupFrame
         x: popup.renderMargin
-        y: popup.renderMargin + (popup.expanded ? 0 : -24)
+        // y, scale и opacity следуют одному анимируемому reveal. При быстром
+        // повторном клике пружина продолжает путь от текущего кадра, а не
+        // получает независимую новую y-анимацию.
+        y: popup.renderMargin - 24 * (1 - popup.reveal)
         width: popup.surfaceWidth
         height: popup.surfaceHeight
         radius: Metrics.panelRadius
         color: Metrics.panelColor
         antialiasing: true
-        scale: 0.12 + 0.88 * popup.reveal
+        scale: Motion.panelSpring.initialScale
+            + (1 - Motion.panelSpring.initialScale) * popup.reveal
         transformOrigin: Item.Top
         opacity: Math.max(0, Math.min(1, popup.reveal))
-
-        // Небольшой пролёт ниже конечной позиции; тень следует за popupFrame.y.
-        Behavior on y {
-            NumberAnimation {
-                duration: Motion.defaultDuration
-                easing.type: popup.expanded ? Easing.OutBack : Easing.InBack
-                easing.overshoot: 1.5
-            }
-        }
 
         FocusScope {
             anchors.fill: parent
@@ -274,7 +274,7 @@ PanelWindow {
                         id: rowMouse
                         anchors.fill: parent
                         enabled: popup.expanded && (row.modelData.test
-                            || !KeyboardLayoutService.commandPending)
+                            || !KeyboardLayoutService.selectionBlocked)
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {

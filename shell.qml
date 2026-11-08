@@ -17,11 +17,20 @@ ShellRoot {
 
     Variants {
         model: Quickshell.screens
-        DockShadow {}
-    }
+        Scope {
+            id: dockScope
+            required property var modelData
 
-    Variants {
-        model: Quickshell.screens
-        DockPanel {}
+            DockPanel {
+                id: dockPanel
+                modelData: dockScope.modelData
+            }
+
+            
+            DockShadow {
+                modelData: dockScope.modelData
+                sourcePanel: dockPanel
+            }
+        }
     }
 }

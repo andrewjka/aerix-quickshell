@@ -43,18 +43,20 @@ PanelWindow {
         color: Metrics.panelColor
         antialiasing: true
 
-        // Декоративная подпись скрывается раньше, чем может пересечься с часами.
-        Text {
-            id: brandLabel
+        // Логотип скрывается раньше, чем может пересечься с часами.
+        Image {
+            id: brandLogo
             anchors.left: parent.left
             anchors.leftMargin: Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
-            visible: parent.width >= 2 * (Metrics.spacing + implicitWidth) + clock.implicitWidth
-            text: "Aerix"
-            color: "#e6ffffff"
-            font.pixelSize: Metrics.statusBarFontSize
-            font.weight: Font.Medium
-            verticalAlignment: Text.AlignVCenter
+            width: 96
+            height: parent.height
+            visible: parent.width >= 2 * (Metrics.spacing + width) + clock.implicitWidth
+            source: Qt.resolvedUrl("../media/icons/Aerix-logo.svg")
+            sourceSize.width: Math.ceil(width * statusBar.devicePixelRatio)
+            sourceSize.height: Math.ceil(height * statusBar.devicePixelRatio)
+            fillMode: Image.PreserveAspectFit
+            smooth: true
         }
 
         KeyboardLayoutWidget {

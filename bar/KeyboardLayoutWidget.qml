@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import Quickshell
 import "../core"
 import "../services"
@@ -24,13 +25,23 @@ Item {
         popupOpen = false;
     }
 
-    Row {
+    function openPopup() {
+        // На открытии перечитываем devices: Hyprland не предоставляет
+        // отдельного надёжного rawEvent для hotplug клавиатуры.
+        KeyboardLayoutService.refresh();
+        popupOpen = true;
+    }
+
+    Item {
         id: content
         anchors.centerIn: parent
-        spacing: 4
+        implicitWidth: layoutLabel.implicitWidth + 4 + languageIcon.width
+        implicitHeight: Math.max(layoutLabel.implicitHeight, languageIcon.height)
 
         Text {
             id: layoutLabel
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
             text: KeyboardLayoutService.activeLabel
             color: widget.canInteract ? "#e6ffffff" : "#80ffffff"
             font.pixelSize: Metrics.statusBarFontSize
@@ -38,13 +49,28 @@ Item {
             verticalAlignment: Text.AlignVCenter
         }
 
-        Text {
-            text: ""
-            color: widget.canInteract ? "#b3ffffff" : "#66ffffff"
-            font.family: "Font Awesome 7 Free"
-            font.styleName: "Solid"
-            font.pixelSize: Metrics.statusBarFontSize - 1
-            verticalAlignment: Text.AlignVCenter
+        Item {
+            id: languageIcon
+            anchors.left: layoutLabel.right
+            anchors.leftMargin: 4
+            anchors.verticalCenter: parent.verticalCenter
+            width: Metrics.statusBarFontSize + 2
+            height: width
+
+            Image {
+                anchors.fill: parent
+                source: Qt.resolvedUrl("../media/icons/language.svg")
+                sourceSize.width: Math.ceil(width * widget.barWindow.devicePixelRatio)
+                sourceSize.height: Math.ceil(height * widget.barWindow.devicePixelRatio)
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                // Layer effect получает текстуру Image автоматически и
+                // перекрашивает нейтральный SVG в текущий цвет темы.
+                layer.enabled: true
+                layer.effect: ColorOverlay {
+                    color: layoutLabel.color
+                }
+            }
         }
     }
 
@@ -56,7 +82,7 @@ Item {
             if (widget.popupOpen)
                 (popupLoader.item as KeyboardLayoutPopup)?.toggle();
             else
-                widget.popupOpen = true;
+                widget.openPopup();
         }
     }
 

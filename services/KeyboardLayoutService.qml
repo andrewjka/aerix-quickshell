@@ -3,6 +3,7 @@ pragma Singleton
 import QtQml
 import Quickshell.Hyprland
 import Quickshell.Io
+import "KeyboardLayoutParser.js" as KeyboardLayoutParser
 
 // Единый источник подтверждённого Hyprland состояния раскладки для всех Bar.
 QtObject {
@@ -32,67 +33,144 @@ QtObject {
     })
 
     property string deviceName: ""
+    property string deviceId: ""
     property var layouts: []
     property int activeIndex: -1
     property string error: ""
+    // Process.running меняется асинхронно; этот флаг закрывает окно между
+    // постановкой query на запуск и фактическим стартом дочернего процесса.
+    property bool queryActive: false
+    // Событие, пришедшее во время query, будет обработано после его завершения.
+    property bool refreshQueued: false
+    // Номер поколения увеличивается только при фактическом запуске query.
+    // Это позволяет отличить старый ответ от проверки после switchxkblayout.
+    property int queryGeneration: 0
+    // Intent живёт до свежего подтверждения или ошибки команды.
+    property var pendingSelection: null
+    property int pendingSelectionToken: 0
     readonly property bool commandPending: layoutCommand.running
+        || pendingSelection !== null
+    // Пока открыт новый snapshot, старый device нельзя использовать для IPC.
+    readonly property bool selectionBlocked: queryActive || commandPending
     readonly property bool available: deviceName.length > 0
         && activeIndex >= 0 && activeIndex < layouts.length
     readonly property string activeLabel: available
         ? String(layouts[activeIndex].label)
         : "??"
 
+    signal layoutSelectionResolved(int token, bool confirmed)
+
     /** Возвращает короткую подпись только для явно известных XKB-кодов. */
     function abbreviation(layout) {
         return layoutAbbreviations[String(layout ?? "").trim().toLowerCase()] ?? "??";
     }
 
-    /** Применяет одно целостное состояние, полученное из `hyprctl -j devices`. */
+    /**
+     * Дополняет raw-снимок IPC представлением, нужным только виджетам.
+     *
+     * Проверка JSON находится в KeyboardLayoutParser и не меняет состояние.
+     */
+    function parseDevices(json) {
+        const result = KeyboardLayoutParser.parseDevices(json);
+        if (!result.ok)
+            return result;
+
+        const snapshot = result.value;
+
+        return {
+            ok: true,
+            value: {
+                deviceName: snapshot.deviceName,
+                layouts: snapshot.layouts.map(entry => ({
+                    index: entry.index,
+                    layout: entry.layout,
+                    variant: entry.variant,
+                    label: abbreviation(entry.layout),
+                    name: entry.variant.length > 0
+                        ? `${entry.layout} (${entry.variant})`
+                        : entry.layout
+                })),
+                deviceId: snapshot.deviceId,
+                activeIndex: snapshot.activeIndex
+            }
+        };
+    }
+
+    /** Сравнивает только структуру модели, не текущее положение в ней. */
+    function hasSameLayoutStructure(snapshot) {
+        if (deviceId !== snapshot.deviceId || layouts.length !== snapshot.layouts.length)
+            return false;
+
+        for (let i = 0; i < layouts.length; ++i) {
+            const current = layouts[i];
+            const next = snapshot.layouts[i];
+            if (current.index !== next.index
+                    || current.layout !== next.layout
+                    || current.variant !== next.variant) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Публикует только полный прошедший валидацию снимок `hyprctl -j devices`. */
     function updateDevices(json) {
-        let devices;
-        try {
-            devices = JSON.parse(json);
-        } catch (parseError) {
-            error = "Hyprland вернул некорректные данные устройств";
+        const result = parseDevices(json);
+        if (!result.ok) {
+            error = result.error;
+            return false;
+        }
+
+        const snapshot = result.value;
+        if (!hasSameLayoutStructure(snapshot)) {
+            deviceId = snapshot.deviceId;
+            layouts = snapshot.layouts;
+        }
+        // Имя нужно обновить отдельно: оно является аргументом IPC-команды,
+        // но само по себе не должно пересоздавать неизменную модель.
+        deviceName = snapshot.deviceName;
+        activeIndex = snapshot.activeIndex;
+        error = "";
+        return true;
+    }
+
+    /**
+     * Запрашивает снимок только при запуске или событии Hyprland, без polling.
+     * Несколько событий во время одного Process схлопываются в один повторный
+     * запрос после onExited.
+     */
+    function refresh() {
+        if (queryActive) {
+            refreshQueued = true;
             return;
         }
 
-        const keyboards = Array.isArray(devices.keyboards) ? devices.keyboards : [];
-        const keyboard = keyboards.find(item => item?.main) ?? keyboards[0] ?? null;
-        const codes = String(keyboard?.layout ?? "")
-            .split(",")
-            .map(code => code.trim())
-            .filter(code => code.length > 0);
-        const variants = String(keyboard?.variant ?? "").split(",");
-        const index = Number(keyboard?.active_layout_index);
-        const nextLayouts = codes.map((layout, layoutIndex) => {
-            const variant = String(variants[layoutIndex] ?? "").trim();
-            return {
-                index: layoutIndex,
-                layout: layout,
-                variant: variant,
-                label: abbreviation(layout),
-                name: variant.length > 0 ? `${layout} (${variant})` : layout
-            };
-        });
-
-        deviceName = String(keyboard?.name ?? "");
-        layouts = nextLayouts;
-        activeIndex = Number.isInteger(index) && index >= 0 && index < nextLayouts.length
-            ? index
-            : -1;
-        error = available ? "" : "Активная раскладка недоступна";
+        queryGeneration += 1;
+        queryActive = true;
+        devicesQuery.running = true;
     }
 
-    /** Запрашивает снимок только при запуске или событии Hyprland, без polling. */
-    function refresh() {
-        if (!devicesQuery.running)
-            devicesQuery.running = true;
+    /** Завершает intent только свежим снимком, запрошенным после команды. */
+    function resolvePendingSelection(snapshotAccepted) {
+        if (pendingSelection === null
+                || queryGeneration < pendingSelection.requiredQueryGeneration) {
+            return;
+        }
+
+        const intent = pendingSelection;
+        const confirmed = snapshotAccepted
+            && deviceId === intent.deviceId
+            && deviceName === intent.deviceName
+            && activeIndex === intent.index;
+        pendingSelection = null;
+        if (!confirmed && snapshotAccepted)
+            error = "Раскладка не подтвердилась";
+        layoutSelectionResolved(intent.token, confirmed);
     }
 
     /** Выбирает конкретный индекс XKB без оптимистичного изменения интерфейса. */
     function select(index) {
-        if (!available || commandPending || !Number.isInteger(index)
+        if (!available || selectionBlocked || !Number.isInteger(index)
                 || index < 0 || index >= layouts.length)
             return false;
 
@@ -100,6 +178,16 @@ QtObject {
             return true;
 
         error = "";
+        pendingSelectionToken += 1;
+        pendingSelection = {
+            token: pendingSelectionToken,
+            deviceId: deviceId,
+            deviceName: deviceName,
+            index: index,
+            // До успешного завершения команды ни один текущий query не может
+            // подтвердить intent.
+            requiredQueryGeneration: 2147483647
+        };
         layoutCommand.exec([
             "hyprctl",
             "switchxkblayout",
@@ -110,7 +198,6 @@ QtObject {
     }
 
     property Process devicesQuery: Process {
-        id: devicesQuery
         command: ["hyprctl", "-j", "devices"]
 
         stdout: StdioCollector {
@@ -119,23 +206,49 @@ QtObject {
         }
 
         onExited: (exitCode, exitStatus) => {
+            service.queryActive = false;
+            const rerun = service.refreshQueued;
+            service.refreshQueued = false;
+
+            let snapshotAccepted = false;
             if (exitCode === 0)
-                service.updateDevices(devicesOutput.text);
-            else if (!service.available)
-                service.error = "Не удалось получить состояние клавиатуры";
+                snapshotAccepted = service.updateDevices(devicesOutput.text);
+            else
+                service.error = service.available
+                    ? "Не удалось обновить состояние клавиатуры"
+                    : "Не удалось получить состояние клавиатуры";
+
+            service.resolvePendingSelection(snapshotAccepted);
+
+            // Сначала завершаем обработку текущего ответа, затем draining
+            // запускает максимум один накопленный запрос.
+            if (rerun)
+                service.refresh();
         }
     }
 
     // Команда одна на все Bar. Пока она работает, повторные клики не создают
     // гонку: интерфейс дождётся актуального события Hyprland.
     property Process layoutCommand: Process {
-        id: layoutCommand
-
         onExited: (exitCode, exitStatus) => {
-            if (exitCode === 0)
+            if (exitCode === 0 && service.pendingSelection !== null) {
+                const intent = service.pendingSelection;
+                // Если query уже шёл, его ответ относится к состоянию до
+                // команды. Требуем следующее поколение независимо от этого.
+                service.pendingSelection = {
+                    token: intent.token,
+                    deviceId: intent.deviceId,
+                    deviceName: intent.deviceName,
+                    index: intent.index,
+                    requiredQueryGeneration: service.queryGeneration + 1
+                };
                 service.refresh();
-            else
+            } else if (exitCode !== 0 && service.pendingSelection !== null) {
+                const token = service.pendingSelection.token;
+                service.pendingSelection = null;
                 service.error = "Не удалось переключить раскладку";
+                service.layoutSelectionResolved(token, false);
+            }
         }
     }
 

@@ -12,10 +12,17 @@ PanelWindow {
     required property var modelData
 
     property string hoveredAddress: ""
+    // Одна непрерывная величина управляет выездом, scale и opacity. При
+    // повторном наведении до завершения закрытия движение разворачивается с
+    // текущего кадра, как у KeyboardLayoutPopup.
+    property real reveal: isOpen ? 1 : 0
 
     readonly property real openY: height - Metrics.panelHeight - Metrics.bottomMargin
     readonly property bool isOpen: DockPresentation.isOpen(modelData.name)
     readonly property bool interactionEnabled: isOpen && Math.abs(panelSurface.y - openY) < 0.5
+    readonly property real revealScale: Motion.panelSpring.initialScale
+        + (1 - Motion.panelSpring.initialScale) * reveal
+    readonly property real revealOpacity: Math.max(0, Math.min(1, reveal))
 
     DockLayout {
         id: layout
@@ -27,6 +34,9 @@ PanelWindow {
     readonly property string activeWorkspaceKey: layout.activeWorkspaceKey
     readonly property real iconSpacing: layout.iconSpacing
     readonly property real panelWidth: layout.panelWidth
+    // Shadow reads the actual animated surface instead of rebuilding Dock
+    // geometry from a second layout owner.
+    readonly property Rectangle dockSurface: panelSurface
 
     onPanelWidthChanged: DockPresentation.setWidth(modelData.name, panelWidth)
     Component.onCompleted: DockPresentation.setWidth(modelData.name, panelWidth)
@@ -87,6 +97,14 @@ PanelWindow {
             workspaceIndicator.nudge(direction);
     }
 
+    Behavior on reveal {
+        NumberAnimation {
+            duration: Motion.panelSpring.duration
+            easing.type: Motion.panelSpring.easingType
+            easing.bezierCurve: Motion.panelSpring.curve
+        }
+    }
+
     onInteractionEnabledChanged: restoreHover()
 
     Timer {
@@ -127,15 +145,14 @@ PanelWindow {
     Rectangle {
         id: panelSurface
         x: Metrics.panelHorizontalMargin
-        y: panel.isOpen ? panel.openY : panel.height
+        y: panel.height - (panel.height - panel.openY) * panel.reveal
         width: panel.panelWidth
         height: Metrics.panelHeight
         radius: Metrics.panelRadius
         color: Metrics.panelColor
-
-        Behavior on y {
-            StandardAnimation {}
-        }
+        scale: panel.revealScale
+        opacity: panel.revealOpacity
+        transformOrigin: Item.Bottom
         Behavior on width {
             StandardAnimation {}
         }
@@ -148,6 +165,9 @@ PanelWindow {
         y: panelSurface.y
         width: panelSurface.width
         height: panelSurface.height
+        scale: panel.revealScale
+        opacity: panel.revealOpacity
+        transformOrigin: Item.Bottom
 
         Text {
             anchors.centerIn: parent

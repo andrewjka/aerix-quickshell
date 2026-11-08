@@ -221,15 +221,17 @@ shell.qml
 ├── bar/StatusBar.qml
 │   ├── ClockWidget.qml → services/ClockService.qml
 │   └── KeyboardLayoutWidget.qml
-│       ├── services/KeyboardLayoutService.qml
+│       ├── services/KeyboardLayoutService.qml → KeyboardLayoutParser.js
 │       └── KeyboardLayoutPopup.qml (LazyLoader, Overlay + HyprlandFocusGrab)
 │           └── core/PanelShadowWindow.qml → core/PanelShadow.qml
 ├── dock/DockShadow.qml → DockLayout.qml → core/PanelShadow.qml
 └── dock/DockPanel.qml → DockLayout.qml → DockGroup.qml → DockIcon.qml
     ├── WorkspaceIndicator.qml
     └── WindowPreview.qml (LazyLoader)
-services/  DockService, DockPresentation, IconService, ClockService — общие singleton
+services/  DockService, DockPresentation, IconService, ClockService, KeyboardLayoutService — общие singleton;
+           KeyboardLayoutParser.js — чистая проверка ответа Hyprland для раскладки
 core/      Metrics, Motion, StandardAnimation, PanelShadow
+tests/     tst_KeyboardLayoutService.qml — проверки parser-boundary без Wayland
 ```
 
 `core/qmldir` и `services/qmldir` регистрируют соответствующие типы и
