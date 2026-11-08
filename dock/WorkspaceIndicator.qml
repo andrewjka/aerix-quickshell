@@ -35,7 +35,10 @@ Rectangle {
     onTargetGroupChanged: {
         const shouldSlide = displayedGroup !== null && targetGroup !== null;
         workspaceTransition.stop();
-        slideStartX = x;
+        // nudge — отдельный добавочный эффект. Он продолжает идти во время
+        // переключения workspace, поэтому из snapshot основной траектории
+        // исключаем уже видимое nudge-смещение.
+        slideStartX = x - nudgeOffset;
         slideStartWidth = width;
         slideProgress = shouldSlide ? 0 : 1;
         displayedGroup = targetGroup;
@@ -65,7 +68,8 @@ Rectangle {
             StandardAnimation {
                 target: indicator
                 property: "verticalExpansion"
-                from: 0
+                // Без from анимация продолжает текущую высоту после
+                // прерывания, вместо мгновенного возврата к нулю.
                 to: 20
                 duration: Motion.defaultDuration
             }
@@ -80,7 +84,6 @@ Rectangle {
         StandardAnimation {
             target: indicator
             property: "verticalExpansion"
-            from: 20
             to: 0
             duration: Motion.defaultDuration
         }

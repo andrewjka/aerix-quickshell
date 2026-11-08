@@ -43,6 +43,16 @@ PanelWindow {
         color: Metrics.panelColor
         antialiasing: true
 
+        // Этот обработчик находится ниже интерактивных виджетов. Пока popup
+        // открыт, клик по свободной части именно этого Bar закрывает его через
+        // reverse-анимацию; click trigger забирает собственный MouseArea.
+        MouseArea {
+            anchors.fill: parent
+            enabled: keyboardLayout.popupOpen
+            acceptedButtons: Qt.AllButtons
+            onClicked: keyboardLayout.dismissPopup()
+        }
+
         // Логотип скрывается раньше, чем может пересечься с часами.
         Image {
             id: brandLogo

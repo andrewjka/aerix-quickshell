@@ -17,6 +17,9 @@ PanelWindow {
     property int testLayoutCount: 0
     property int pendingSelectionToken: 0
     property int selectedTestIndex: -1
+    // Курсор клавиатуры не является подтверждённой системной раскладкой.
+    // Он живёт только пока popup открыт и управляет Up/Down/Enter.
+    property int navigationIndex: -1
     property bool expanded: false
     property real reveal: expanded ? 1 : 0
     readonly property var entries: KeyboardLayoutService.layouts.concat(
@@ -24,18 +27,49 @@ PanelWindow {
             index: -1, label: String(i + 1), name: "", test: true
         })))
     readonly property int rowHeight: 32
+    readonly property int revealTravel: 24
+    readonly property real springScaleOverflow: Math.max(0,
+        Motion.panelSpring.maximumScale - 1)
+    readonly property real springProgressOverflow: Math.max(0,
+        Motion.panelSpring.maximumProgress - 1)
+    readonly property int shadowMargin: Math.ceil(Metrics.panelShadowRadius) + 1
+    // transformOrigin равен Top: масштаб растит content целиком вниз, а не
+    // поровну в обе стороны. Начальная фаза раскрытия, напротив, уходит вверх.
+    readonly property int topRenderMargin: shadowMargin + revealTravel
+    readonly property int bottomSpringOverflow: Math.ceil(
+        revealTravel * springProgressOverflow)
+    readonly property int bottomRenderMargin: shadowMargin + bottomSpringOverflow
+        + Math.ceil(surfaceHeight * springScaleOverflow)
+    readonly property int horizontalRenderMargin: shadowMargin + Math.ceil(
+        surfaceWidth * springScaleOverflow / 2)
+    readonly property int popupTop: barWindow.height + 2 * Metrics.spacing
+    // Максимальная высота content выводится из полного пути: reveal может
+    // сместить окно вниз, а spring scale увеличивает его от верхней границы.
+    // Это сохраняет конечный нижний отступ и не полагается на clipping shell.
+    // qmllint disable missing-property
+    readonly property int maximumSurfaceHeight: Math.max(0, Math.floor(
+        (screen.height - popupTop - shadowMargin - bottomSpringOverflow)
+        / (1 + springScaleOverflow)))
+    // qmllint enable missing-property
+    readonly property int maximumErrorHeight: Math.max(0,
+        maximumSurfaceHeight - 2 * Metrics.spacing - rowHeight - Metrics.popupRowSpacing)
+    readonly property int errorHeight: errorLabel.visible
+        ? Math.min(errorLabel.implicitHeight, maximumErrorHeight) : 0
+    readonly property int availableListHeight: Math.max(0, maximumSurfaceHeight
+        - 2 * Metrics.spacing - (errorLabel.visible
+            ? errorHeight + Metrics.spacing : 0))
+    readonly property int visibleRowCount: entries.length === 0 ? 0 : Math.min(5,
+        entries.length, Math.max(0, Math.floor((availableListHeight - 2
+            + Metrics.popupRowSpacing) / (rowHeight + Metrics.popupRowSpacing))))
     // По пикселю внутри viewport для сглаженного края обводки.
-    readonly property int listHeight: Math.min(5, Math.max(1, entries.length)) * rowHeight
-        + Math.max(0, Math.min(5, entries.length) - 1) * Metrics.popupRowSpacing + 2
+    readonly property int listHeight: visibleRowCount * rowHeight
+        + Math.max(0, visibleRowCount - 1) * Metrics.popupRowSpacing + 2
+    // qmllint disable missing-property
     readonly property int surfaceWidth: Math.min(196,
         screen.width - 2 * Metrics.statusBarHorizontalMargin)
+    // qmllint enable missing-property
     readonly property int surfaceHeight: listHeight + 2 * Metrics.spacing
-        + (errorLabel.visible ? errorLabel.implicitHeight + Metrics.spacing : 0)
-    // Layer-surface включает запас и под тень, и под maximum scale пружины.
-    // transformOrigin находится сверху, поэтому вертикальный overflow равен
-    // полной разнице высоты, а не её половине.
-    readonly property int renderMargin: Math.ceil(Metrics.panelShadowRadius) + 1
-        + Math.ceil(surfaceHeight * (Motion.panelSpring.maximumScale - 1))
+        + (errorLabel.visible ? errorHeight + Metrics.spacing : 0)
     readonly property real surfaceX: {
         const barWidth = barWindow.width;
         // mapToItem не подписывает binding на перемещения якоря.
@@ -53,10 +87,10 @@ PanelWindow {
     anchors { top: true; left: true }
     // Ignore исключает reserved area Bar из расчёта позиции: y задан от экрана.
     exclusionMode: ExclusionMode.Ignore
-    margins.left: surfaceX - renderMargin
-    margins.top: barWindow.height + 2 * Metrics.spacing - renderMargin
-    implicitWidth: surfaceWidth + 2 * renderMargin
-    implicitHeight: surfaceHeight + 2 * renderMargin
+    margins.left: surfaceX - horizontalRenderMargin
+    margins.top: popupTop - topRenderMargin
+    implicitWidth: surfaceWidth + 2 * horizontalRenderMargin
+    implicitHeight: surfaceHeight + topRenderMargin + bottomRenderMargin
     color: "transparent"
     WlrLayershell.namespace: "aerix:keyboard-layout"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -98,17 +132,54 @@ PanelWindow {
     }
 
     function moveSelection(step) {
-        layoutList.currentIndex = Math.max(0,
-            Math.min(entries.length - 1, layoutList.currentIndex + step));
-        layoutList.positionViewAtIndex(layoutList.currentIndex, ListView.Contain);
+        if (entries.length === 0)
+            return;
+        navigationIndex = Math.max(0,
+            Math.min(entries.length - 1, navigationIndex + step));
+        positionNavigation();
+    }
+
+    function initializeNavigation() {
+        if (entries.length === 0) {
+            navigationIndex = -1;
+            return;
+        }
+        navigationIndex = Math.max(0, Math.min(entries.length - 1,
+            KeyboardLayoutService.activeIndex));
+        positionNavigation();
+    }
+
+    function clampNavigation() {
+        if (entries.length === 0) {
+            navigationIndex = -1;
+            return;
+        }
+        navigationIndex = Math.max(0, Math.min(entries.length - 1,
+            navigationIndex < 0 ? KeyboardLayoutService.activeIndex : navigationIndex));
+        positionNavigation();
+    }
+
+    function positionNavigation() {
+        if (navigationIndex >= 0 && layoutList)
+            layoutList.positionViewAtIndex(navigationIndex, ListView.Contain);
     }
 
     Component.onCompleted: expanded = true
-    onExpandedChanged: focusGrab.active = expanded
+    onExpandedChanged: {
+        focusGrab.active = expanded;
+        if (expanded)
+            initializeNavigation();
+    }
+    onEntriesChanged: clampNavigation()
 
     HyprlandFocusGrab {
         id: focusGrab
-        windows: [popup]
+        // FocusGrab пропускает ввод только к whitelist поверхностям. Bar нужен
+        // здесь для повторного клика по trigger: иначе compositor сначала
+        // очистит grab как при внешнем клике, а потом тот же жест попробует
+        // открыть/закрыть popup второй раз. Пустая зона Bar закрывается его
+        // нижним MouseArea, поэтому whitelist не превращает Bar в исключение.
+        windows: [popup, popup.barWindow]
         onCleared: popup.dismiss()
     }
 
@@ -151,11 +222,11 @@ PanelWindow {
 
     Rectangle {
         id: popupFrame
-        x: popup.renderMargin
+        x: popup.horizontalRenderMargin
         // y, scale и opacity следуют одному анимируемому reveal. При быстром
         // повторном клике пружина продолжает путь от текущего кадра, а не
         // получает независимую новую y-анимацию.
-        y: popup.renderMargin - 24 * (1 - popup.reveal)
+        y: popup.topRenderMargin - popup.revealTravel * (1 - popup.reveal)
         width: popup.surfaceWidth
         height: popup.surfaceHeight
         radius: Metrics.panelRadius
@@ -177,7 +248,7 @@ PanelWindow {
                 else if (event.key === Qt.Key_Up)
                     popup.moveSelection(-1);
                 else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-                    popup.selectLayout(layoutList.currentIndex);
+                    popup.selectLayout(popup.navigationIndex);
                 else
                     return;
                 event.accepted = true;
@@ -195,7 +266,7 @@ PanelWindow {
                 spacing: Metrics.popupRowSpacing
                 boundsBehavior: Flickable.StopAtBounds
                 model: popup.entries
-                currentIndex: Math.max(0, KeyboardLayoutService.activeIndex)
+                currentIndex: popup.navigationIndex
                 highlightMoveDuration: 0
                 ScrollBar.vertical: ScrollBar {
                     // Полоса занимает внешний padding, а не ширину строк.
@@ -214,6 +285,7 @@ PanelWindow {
                     readonly property bool selected: modelData.test
                         ? popup.selectedTestIndex === index
                         : modelData.index === KeyboardLayoutService.activeIndex
+                    readonly property bool navigationCurrent: index === popup.navigationIndex
                     width: layoutList.width
                     height: popup.rowHeight
 
@@ -232,6 +304,24 @@ PanelWindow {
                             StandardAnimation {
                                 duration: Motion.defaultDuration
                             }
+                        }
+                    }
+
+                    // Keyboard cursor остаётся отдельным от системного selected:
+                    // Up/Down не выдают подтверждение смены раскладки.
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.leftMargin: 1
+                        anchors.rightMargin: 1
+                        radius: Metrics.panelRadius - 2
+                        color: row.navigationCurrent ? "#26ffffff" : "transparent"
+                        border.width: row.navigationCurrent && !row.selected ? 0.5 : 0
+                        border.pixelAligned: false
+                        border.color: "#99ffffff"
+                        antialiasing: true
+
+                        Behavior on color {
+                            ColorAnimation { duration: Motion.defaultDuration }
                         }
                     }
 
@@ -278,7 +368,7 @@ PanelWindow {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            layoutList.currentIndex = row.index;
+                            popup.navigationIndex = row.index;
                             popup.selectLayout(row.index);
                         }
                     }
@@ -295,6 +385,9 @@ PanelWindow {
                 color: "#f0b2b2"
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
+                maximumLineCount: 2
+                height: popup.errorHeight
+                clip: true
             }
         }
     }

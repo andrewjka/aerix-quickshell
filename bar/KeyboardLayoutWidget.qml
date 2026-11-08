@@ -25,6 +25,16 @@ Item {
         popupOpen = false;
     }
 
+    // Внешние поверхности запрашивают закрытие у живого popup, чтобы Loader
+    // дождался обратной spring-анимации. `closePopup` остаётся финальным
+    // callback-ом `dismissed`, который только выгружает уже закрытый слой.
+    function dismissPopup() {
+        if (popupLoader.item)
+            (popupLoader.item as KeyboardLayoutPopup).dismiss();
+        else
+            closePopup();
+    }
+
     function openPopup() {
         // На открытии перечитываем devices: Hyprland не предоставляет
         // отдельного надёжного rawEvent для hotplug клавиатуры.

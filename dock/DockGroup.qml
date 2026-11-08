@@ -18,8 +18,11 @@ Item {
     required property bool activeWorkspaceOnLeft
     required property bool activeWorkspaceOnRight
 
+    // Внешние потребители сопоставляют живой delegate по этому ключу, а не
+    // по временному индексу Repeater.
+    readonly property string workspaceKey: String(modelData.key ?? "")
     readonly property var windows: modelData.windows
-    readonly property bool isActiveWorkspace: modelData.key === activeWorkspaceKey
+    readonly property bool isActiveWorkspace: workspaceKey === activeWorkspaceKey
     readonly property int hoveredIndex: hoveredAddress
         ? windows.findIndex(toplevel => String(toplevel?.address ?? "") === hoveredAddress)
         : -1
@@ -31,6 +34,9 @@ Item {
     signal hoverEntered(var toplevel)
     signal hoverExited(var toplevel)
     signal activated(var toplevel)
+    signal identityChanged()
+
+    onWorkspaceKeyChanged: identityChanged()
 
     /** Восстанавливает hover после выезда панели, когда onEntered уже прошёл. */
     function addressUnderPointer() {

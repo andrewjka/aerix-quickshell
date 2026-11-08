@@ -209,9 +209,9 @@ Engine, упаковку и новые интерфейсы планироват
 
 ## Что действительно есть в Shell
 
-`shell.qml` — единая точка композиции. Четыре `Variants` создают на каждом
-экране отдельные видимые поверхности и input-прозрачные поверхности теней для
-StatusBar и Dock; singleton-сервисы общие для всех экранов.
+`shell.qml` — единая точка композиции. Три `Variants` создают на каждом
+экране отдельные StatusBar/его тень и локальную `Scope`-пару Dock/его тень;
+singleton-сервисы общие для всех экранов.
 Подключение и отключение экранов предусмотрено моделью `Quickshell.screens`, но
 полноценную проверку hotplug и разных DPI нельзя считать подтверждённой.
 
@@ -224,11 +224,12 @@ shell.qml
 │       ├── services/KeyboardLayoutService.qml → KeyboardLayoutParser.js
 │       └── KeyboardLayoutPopup.qml (LazyLoader, Overlay + HyprlandFocusGrab)
 │           └── core/PanelShadowWindow.qml → core/PanelShadow.qml
-├── dock/DockShadow.qml → DockLayout.qml → core/PanelShadow.qml
-└── dock/DockPanel.qml → DockLayout.qml → DockGroup.qml → DockIcon.qml
-    ├── WorkspaceIndicator.qml
-    └── WindowPreview.qml (LazyLoader)
-services/  DockService, DockPresentation, IconService, ClockService, KeyboardLayoutService — общие singleton;
+└── Scope на экран
+    ├── dock/DockPanel.qml → DockLayout.qml → DockGroup.qml → DockIcon.qml
+    │   ├── WorkspaceIndicator.qml
+    │   └── WindowPreview.qml (LazyLoader)
+    └── dock/DockShadow.qml → core/PanelShadow.qml
+services/  DockService, IconService, ClockService, KeyboardLayoutService — общие singleton;
            KeyboardLayoutParser.js — чистая проверка ответа Hyprland для раскладки
 core/      Metrics, Motion, StandardAnimation, PanelShadow
 tests/     tst_KeyboardLayoutService.qml — проверки parser-boundary без Wayland
@@ -246,8 +247,9 @@ Dock показывает **открытые окна**, сгруппирова�
 фильтр не исключает его: не считать поведение в этом случае доказанной строгой
 изоляцией мониторов. Фокус: `toplevel.wayland.activate()` при наличии handle,
 иначе проверенный адрес и IPC-команда с учётом `Hyprland.usingLua`.
-Переключение колёсиком выбирает соседний существующий workspace монитора;
-при достижении края индикатор покачивается.
+Колесо выбирает соседний normal workspace того же монитора; special workspace
+не становится соседом. Одна wheel-пачка вычисляет одну итоговую цель и
+отправляет один dispatch; индикатор покачивается только на подтверждённом краю.
 
 `DockPanel.qml` управляет выездом, маской ввода, геометрией и событиями;
 скрытая панель оставляет узкую полосу активации у нижнего края. Область ввода
@@ -256,8 +258,10 @@ Dock показывает **открытые окна**, сгруппирова�
 на окно другого workspace есть задержка закрытия. Ширина ограничена **75 %**
 логической ширины экрана; иконки уплотняются, при переполнении предусмотрен
 горизонтальный `Flickable` (вертикальное колесо переключает workspace).
-`DockPresentation` синхронизирует открытие и итоговую ширину с `DockShadow`,
-поэтому тень следует за той же анимацией, но не перехватывает ввод.
+`DockPanel` владеет состоянием открытия и экспортирует фактическую
+`dockSurface`; `DockShadow` в той же экранной `Scope` читает её геометрию
+напрямую. Поэтому тень следует за той же анимацией, но не перехватывает ввод,
+а второго `DockLayout` и глобальной карты экранов нет.
 
 `DockGroup` рассчитывает отступы и раздвижение слотов; `DockIcon` отображает
 изображение и посылает события, а `WorkspaceIndicator` анимирует обводку
@@ -267,28 +271,30 @@ Dock показывает **открытые окна**, сгруппирова�
 `IconService` ищет desktop entry, затем иконку по app-id/class, имеет общий
 ограниченный кэш и сбрасывает его при изменении списка приложений.
 
-`WindowPreview` создаётся через `LazyLoader` при наведении. `ScreencopyView`
-получает один кадр, затем live-захват выключается; карточка привязана к окну
-панели и позиции иконки. Поведение захвата и позиционирования нужно проверять
-в настоящей Wayland-сессии, особенно при удалении окна и смене делегата.
+`WindowPreview` создаётся через `LazyLoader` при наведении. Public API
+ScreencopyView не сообщает о готовности recording context, поэтому он кратко
+включает `live` при смене source и выключает его на первом кадре; карточка
+привязана к окну панели и позиции иконки. Поведение захвата и позиционирования
+нужно проверять в настоящей Wayland-сессии, особенно при удалении окна и смене
+делегата.
 Закреплённые приложения и запуск приложений из Dock не реализованы; политика
 special workspaces, fullscreen и недоступных мониторов требует обсуждения.
 
 ### Верхняя панель и общий стиль
 
 `StatusBar` постоянно закреплена сверху, резервирует рабочую область через
-`exclusiveZone: Metrics.statusBarHeight`, содержит только центральные часы `HH:mm`. Общий
-`ClockService` использует `SystemClock.Minutes`. При hover панель запрашивает
-`WlrKeyboardFocus.Exclusive`, после ухода — `None`: это осознанное поведение,
-влияющее на фокус приложений. Подробности — `Status_bar.md`; его исторические
+`exclusiveZone: Metrics.statusBarHeight`, содержит центральные часы `HH:mm` и
+виджет раскладки справа. Общий `ClockService` использует `SystemClock.Minutes`.
+Обычная панель всегда использует `WlrKeyboardFocus.None`; открытый popup
+раскладки отдельно получает `OnDemand` через `HyprlandFocusGrab`. Подробности — `Status_bar.md`; его исторические
 измерения и значения следует сверять с кодом: например, в текущем `Metrics`
 высота 40, а радиус и цвет тени меняются вместе с пользовательской темой.
 
 Оформление и размеры общих поверхностей задаются преимущественно в
-`core/Metrics.qml`, тень — `PanelShadow.qml`. Единая кривая движения:
-`cubic-bezier(0.05, 0.9, 0.1, 1.05)`, включая намеренный небольшой overshoot.
-В QML это `Motion.standardCurve`: `[0.05, 0.9, 0.1, 1.05, 1, 1]`.
-`Motion` хранит длительности, `StandardAnimation` использует общую кривую.
+`core/Metrics.qml`, тень — `PanelShadow.qml`. `Motion.standardCurve` задаёт
+базовую кривую, а `Motion.panelSpring` централизованно собирает общий профиль
+Dock и popup из редактируемых `panelSpringInitialScale`/`panelSpringOvershoot`.
+`StandardAnimation` использует базовую кривую.
 Итоговые палитра, шрифты, логотип и система accessibility ещё не утверждены.
 
 **Обязательные namespace слоёв:** `aerix:dock-panel` и `aerix:status-bar`.

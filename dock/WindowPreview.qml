@@ -25,7 +25,8 @@ PopupWindow {
         : Metrics.previewWidth / Metrics.previewHeight
 
     // Popup привязан к окну панели; движущийся делегат служит только
-    // источником координат, которые пересчитываются при закреплении popup.
+    // источником координат. Связанные ниже geometry signals запрашивают
+    // повторное закрепление, так как mapToItem() сам не создаёт QML binding.
     anchor.window: panelWindow
     anchor.edges: Edges.Top | Edges.Left
     anchor.gravity: Edges.Bottom | Edges.Right
@@ -36,6 +37,12 @@ PopupWindow {
     implicitHeight: implicitWidth / contentAspect + Metrics.previewTitleHeight
     color: "transparent"
     visible: toplevel !== null && iconItem !== null
+
+    /** Пересчитывает popup anchor только при изменении его входной геометрии. */
+    function updateAnchor() {
+        if (visible)
+            anchor.updateAnchor();
+    }
 
     // Нижний край карточки закрепляется над поверхностью панели.
     // Координаты иконки переводятся в систему окна в момент показа.
@@ -60,10 +67,52 @@ PopupWindow {
     onToplevelChanged: reveal()
     Component.onCompleted: reveal()
 
-    // Позиция делегата может стать доступной после создания popup.
-    onIconItemChanged: {
-        if (visible)
-            anchor.updateAnchor();
+    // Позиция делегата может стать доступной после создания popup. Размер
+    // меняется после первого кадра ScreencopyView, поэтому также центрируем
+    // уже открытую карточку относительно иконки повторно.
+    onIconItemChanged: updateAnchor()
+    onPanelTopChanged: updateAnchor()
+    onImplicitWidthChanged: updateAnchor()
+    onImplicitHeightChanged: updateAnchor()
+
+    // DockIcon движется внутри DockGroup, сама группа — внутри Row, а ряд —
+    // внутри Flickable contentItem. Все четыре уровня участвуют в mapToItem;
+    // подписываемся лишь пока preview создан LazyLoader'ом.
+    readonly property Item iconGroup: iconItem?.parent ?? null
+    readonly property Item iconRow: iconGroup?.parent ?? null
+    readonly property Item iconContent: iconRow?.parent ?? null
+
+    Connections {
+        target: preview.iconItem
+
+        function onXChanged() { preview.updateAnchor(); }
+        function onYChanged() { preview.updateAnchor(); }
+        function onWidthChanged() { preview.updateAnchor(); }
+        function onHeightChanged() { preview.updateAnchor(); }
+        function onParentChanged() { preview.updateAnchor(); }
+    }
+
+    Connections {
+        target: preview.iconGroup
+
+        function onXChanged() { preview.updateAnchor(); }
+        function onYChanged() { preview.updateAnchor(); }
+        function onParentChanged() { preview.updateAnchor(); }
+    }
+
+    Connections {
+        target: preview.iconRow
+
+        function onXChanged() { preview.updateAnchor(); }
+        function onYChanged() { preview.updateAnchor(); }
+        function onParentChanged() { preview.updateAnchor(); }
+    }
+
+    Connections {
+        target: preview.iconContent
+
+        function onXChanged() { preview.updateAnchor(); }
+        function onYChanged() { preview.updateAnchor(); }
     }
 
     // Один общий transition для opacity и scale; 512 мс — согласованное время
@@ -106,8 +155,10 @@ PopupWindow {
                 id: previewImage
                 anchors.fill: parent
                 captureSource: preview.toplevel?.wayland ?? null
-                // Источник запускает захват, а первый готовый кадр останавливает
-                // его. Пока popup открыт, изображение остаётся снимком.
+                // Public API не сообщает о готовности recording context,
+                // поэтому captureFrame() нельзя безопасно вызвать сразу после
+                // смены source. Краткий live-захват создаёт контекст, а первый
+                // полученный кадр снова останавливает поток.
                 live: false
                 paintCursor: false
                 onCaptureSourceChanged: {
@@ -148,7 +199,9 @@ PopupWindow {
                 height: 16
                 source: preview.toplevel ? IconService.resolveIcon(preview.toplevel) : ""
                 cache: true
-                sourceSize: Qt.size(32, 32)
+                sourceSize: Qt.size(
+                    Math.ceil(width * Math.max(1, preview.devicePixelRatio)),
+                    Math.ceil(height * Math.max(1, preview.devicePixelRatio)))
                 fillMode: Image.PreserveAspectFit
                 smooth: true
             }

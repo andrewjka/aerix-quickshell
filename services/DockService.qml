@@ -33,6 +33,10 @@ QtObject {
             if (!group) {
                 group = {
                     key: key,
+                    // Живая ссылка нужна DockLayout для сравнения identity:
+                    // совпадение key не доказывает, что системный workspace
+                    // не был заменён новым QObject.
+                    workspace: workspace,
                     workspaceId: workspace?.id ?? 0,
                     windows: []
                 };
@@ -49,6 +53,21 @@ QtObject {
     /** Монитор определяется независимо от наличия окон в его workspace. */
     function monitorForScreen(screenName) {
         return Hyprland.monitors.values.find(monitor => monitor.name === screenName) ?? null;
+    }
+
+    // Quickshell не экспортирует workspace.type отдельным typed-свойством, но
+    // сохраняет исходный Hyprland snapshot. Wheel принадлежит обычному ряду
+    // рабочих пространств: special workspace является отдельным overlay и не
+    // должен стать «соседом» при прокрутке Dock.
+    function isNormalWorkspaceOnScreen(workspace, screenName) {
+        return workspace?.monitor?.name === screenName
+            && workspace?.lastIpcObject?.type === "normal";
+    }
+
+    function normalWorkspacesForScreen(screenName) {
+        return Hyprland.workspaces.values
+            .filter(workspace => isNormalWorkspaceOnScreen(workspace, screenName))
+            .sort((left, right) => left.id - right.id);
     }
 
     /** Активирует окно через нативный Wayland handle или Hyprland IPC. */
@@ -69,28 +88,38 @@ QtObject {
         Hyprland.dispatch(command);
     }
 
-    /** Переключает на соседний существующий workspace текущего монитора. */
-    function switchWorkspace(screenName, direction) {
+    /**
+     * Переключает на одну итоговую цель normal-workspace ряда.
+     *
+     * Возвращает `atBoundary` только когда полный подтверждённый snapshot
+     * показывает реальный край. Отсутствие монитора или неполная модель не
+     * выдаёт ложный nudge.
+     */
+    function switchWorkspace(screenName, offset) {
+        const requestedOffset = Math.trunc(offset);
+        if (requestedOffset === 0)
+            return { dispatched: false, atBoundary: false };
+
         const activeWorkspace = monitorForScreen(screenName)?.activeWorkspace;
         if (!activeWorkspace)
-            return false;
+            return { dispatched: false, atBoundary: false };
 
-        const workspaces = Hyprland.workspaces.values
-            .filter(item => item?.monitor?.name === screenName)
-            .sort((left, right) => left.id - right.id);
+        const workspaces = normalWorkspacesForScreen(screenName);
         const activeIndex = workspaces.findIndex(item => item.id === activeWorkspace.id);
         if (activeIndex < 0)
-            return false;
+            return { dispatched: false, atBoundary: false };
 
-        const nextIndex = activeIndex + (direction < 0 ? -1 : 1);
-        if (nextIndex < 0 || nextIndex >= workspaces.length)
-            return false;
+        const targetIndex = Math.max(0, Math.min(workspaces.length - 1,
+            activeIndex + requestedOffset));
+        if (targetIndex === activeIndex)
+            return { dispatched: false, atBoundary: true,
+                boundaryDirection: Math.sign(requestedOffset) };
 
-        const workspaceId = String(workspaces[nextIndex].id);
+        const workspaceId = String(workspaces[targetIndex].id);
         const command = Hyprland.usingLua
             ? `hl.dsp.focus({ workspace = "${workspaceId}" })`
             : "workspace " + workspaceId;
         Hyprland.dispatch(command);
-        return true;
+        return { dispatched: true, atBoundary: false };
     }
 }

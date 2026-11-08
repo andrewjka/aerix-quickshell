@@ -1,5 +1,4 @@
 singleton IconService 1.0 IconService.qml
 singleton DockService 1.0 DockService.qml
-singleton DockPresentation 1.0 DockPresentation.qml
 singleton ClockService 1.0 ClockService.qml
 singleton KeyboardLayoutService 1.0 KeyboardLayoutService.qml

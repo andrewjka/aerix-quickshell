@@ -12,13 +12,20 @@ PanelWindow {
     required property var modelData
 
     property string hoveredAddress: ""
+    // Открытость принадлежит конкретной panel surface. Shadow получает её
+    // фактическую геометрию напрямую, поэтому глобальная карта экранов больше
+    // не нужна.
+    property bool isOpen: false
+    // Ссылка обновляется по lifecycle Repeater, а не строится из itemAt() в
+    // binding. Это исключает чтение старого delegate при замене модели с тем
+    // же количеством рабочих пространств.
+    property DockGroup activeGroupDelegate: null
     // Одна непрерывная величина управляет выездом, scale и opacity. При
     // повторном наведении до завершения закрытия движение разворачивается с
     // текущего кадра, как у KeyboardLayoutPopup.
     property real reveal: isOpen ? 1 : 0
 
     readonly property real openY: height - Metrics.panelHeight - Metrics.bottomMargin
-    readonly property bool isOpen: DockPresentation.isOpen(modelData.name)
     readonly property bool interactionEnabled: isOpen && Math.abs(panelSurface.y - openY) < 0.5
     readonly property real revealScale: Motion.panelSpring.initialScale
         + (1 - Motion.panelSpring.initialScale) * reveal
@@ -37,9 +44,6 @@ PanelWindow {
     // Shadow reads the actual animated surface instead of rebuilding Dock
     // geometry from a second layout owner.
     readonly property Rectangle dockSurface: panelSurface
-
-    onPanelWidthChanged: DockPresentation.setWidth(modelData.name, panelWidth)
-    Component.onCompleted: DockPresentation.setWidth(modelData.name, panelWidth)
 
     // Иконка уже содержит окно: дополнительный поиск по всем группам не нужен.
     readonly property DockIcon hoveredIcon: {
@@ -73,7 +77,7 @@ PanelWindow {
     /** Сбрасывает preview до начала закрывающей анимации панели. */
     function closePanel() {
         hoveredAddress = "";
-        DockPresentation.setOpen(modelData.name, false);
+        isOpen = false;
     }
 
     /** Восстанавливает hover, если курсор попал на иконку ещё во время выезда. */
@@ -91,11 +95,28 @@ PanelWindow {
         }
     }
 
-    /** Переключает workspace или запускает обратную связь на краю списка. */
-    function switchWorkspace(direction) {
-        if (!DockService.switchWorkspace(modelData.name, direction))
-            workspaceIndicator.nudge(direction);
+    /** Переключает wheel-пачку одной командой или nudge-ит реальный край. */
+    function switchWorkspace(offset) {
+        const result = DockService.switchWorkspace(modelData.name, offset);
+        if (result.atBoundary)
+            workspaceIndicator.nudge(result.boundaryDirection);
     }
+
+    function resolveActiveGroupDelegate() {
+        let resolved = null;
+        for (let i = 0; i < groupRepeater.count; i++) {
+            const candidate = groupRepeater.itemAt(i) as DockGroup;
+            if (candidate?.workspaceKey === activeWorkspaceKey) {
+                resolved = candidate;
+                break;
+            }
+        }
+        if (activeGroupDelegate !== resolved)
+            activeGroupDelegate = resolved;
+    }
+
+    onActiveWorkspaceKeyChanged: resolveActiveGroupDelegate()
+    Component.onCompleted: resolveActiveGroupDelegate()
 
     Behavior on reveal {
         NumberAnimation {
@@ -120,7 +141,7 @@ PanelWindow {
         id: panelHover
         onHoveredChanged: {
             if (hovered) {
-                DockPresentation.setOpen(panel.modelData.name, true);
+                panel.isOpen = true;
             } else {
                 panel.hoveredAddress = "";
                 if (!closeDelay.running)
@@ -172,7 +193,7 @@ PanelWindow {
         Text {
             anchors.centerIn: parent
             visible: panel.groups.length === 0
-            text: "Aeris"
+            text: "Aerix"
             color: "#e6ffffff"
             font.pixelSize: 16
             font.weight: Font.Medium
@@ -205,12 +226,14 @@ PanelWindow {
                     if (!panel.interactionEnabled)
                         return;
                     wheelDelta += wheel.angleDelta.y;
-                    while (Math.abs(wheelDelta) >= 120) {
-                        const direction = Math.sign(wheelDelta);
-                        wheelDelta -= direction * 120;
-                        // Колесо вверх выбирает следующий workspace.
-                        panel.switchWorkspace(direction);
-                    }
+                    const workspaceOffset = Math.trunc(wheelDelta / 120);
+                    if (workspaceOffset === 0)
+                        return;
+                    wheelDelta -= workspaceOffset * 120;
+                    // Колесо вверх выбирает следующий workspace. Даже большой
+                    // delta вычисляет один target из одного snapshot и выдаёт
+                    // один IPC dispatch вместо цикла со старым active state.
+                    panel.switchWorkspace(workspaceOffset);
                 }
             }
 
@@ -218,16 +241,7 @@ PanelWindow {
             WorkspaceIndicator {
                 id: workspaceIndicator
                 groupsRow: workspaceRow
-                targetGroup: {
-                    // Binding должен дождаться создания Repeater-делегатов:
-                    // itemAt() сам по себе не сообщает о появлении элемента.
-                    const groupCount = groupRepeater.count;
-                    const activeIndex = panel.groups.findIndex(group =>
-                        group.key === panel.activeWorkspaceKey);
-                    return activeIndex >= 0 && activeIndex < groupCount
-                        ? groupRepeater.itemAt(activeIndex) as DockGroup
-                        : null;
-                }
+                targetGroup: panel.activeGroupDelegate
             }
 
             Row {
@@ -244,6 +258,13 @@ PanelWindow {
                     id: groupRepeater
                     model: panel.groups
 
+                    onItemAdded: (index, item) => panel.resolveActiveGroupDelegate()
+                    onItemRemoved: (index, item) => {
+                        if (panel.activeGroupDelegate === item)
+                            panel.activeGroupDelegate = null;
+                        panel.resolveActiveGroupDelegate();
+                    }
+
                     delegate: DockGroup {
                         groupCount: panel.groups.length
                         hoveredAddress: panel.hoveredAddress
@@ -254,6 +275,8 @@ PanelWindow {
                             && panel.groups[index - 1].key === panel.activeWorkspaceKey
                         activeWorkspaceOnRight: !isActiveWorkspace && index < panel.groups.length - 1
                             && panel.groups[index + 1].key === panel.activeWorkspaceKey
+
+                        onIdentityChanged: panel.resolveActiveGroupDelegate()
 
                         onHoverEntered: toplevel => {
                             if (panel.interactionEnabled)
