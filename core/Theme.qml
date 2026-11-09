@@ -17,9 +17,9 @@ QtObject {
     property var palette: ({
         values: { background: "#192B39", surface: "#000000",
             surfaceElevated: "#344D60", text: "#EAF5FC", surfaceText: "#FFFFFF",
-            hover: "#FFFFFF", outline: "#FFFFFF", shadow: "#10191F", error: "#F29B9B" },
+            hover: "#FFFFFF", outline: "#FFFFFF", shadow: "#10191F", scrim: "#000000", error: "#F29B9B" },
         opacity: { background: 1, surface: 0.08, shadow: 0.48, hover: 0.20,
-            outline: 0.92, previewTitle: 0.88, textEnabled: 0.90, textDisabled: 0.50 }
+            outline: 0.92, scrim: 0.63, previewTitle: 0.88, textEnabled: 0.90, textDisabled: 0.50 }
     })
     readonly property string transparentColor: "transparent"
     readonly property string shadowMaskColor: "#FFFFFF"
@@ -27,9 +27,13 @@ QtObject {
     readonly property var glassTextColor: palette.values.surfaceText
     readonly property var errorColor: palette.values.error
     readonly property var elevatedSurfaceColor: palette.values.surfaceElevated
+    // Непрозрачный цвет фона рабочего стола: подложка workspace не должна
+    // наследовать прозрачность стеклянной карточки.
+    readonly property var desktopBackgroundColor: palette.values.background
     readonly property var statusBarBackgroundColor: withOpacity("background", "background")
     readonly property var floatingSurfaceBackgroundColor: withOpacity("surface", "surface")
     readonly property var panelShadowColor: withOpacity("shadow", "shadow")
+    readonly property var overviewScrimColor: withOpacity("scrim", "scrim")
     readonly property var hoverOverlayColor: withOpacity("hover", "hover")
     readonly property var selectionOutlineColor: withOpacity("outline", "outline")
     readonly property var windowPreviewTitleBackgroundColor:

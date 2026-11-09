@@ -8,6 +8,8 @@ PanelWindow {
     id: statusBar
 
     required property var modelData
+    property bool overviewOpen: false
+    signal overviewRequested(var screen)
 
     screen: modelData
     anchors {
@@ -25,6 +27,11 @@ PanelWindow {
     exclusiveZone: Metrics.statusBarHeight
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aerix:status-bar"
+
+    onOverviewOpenChanged: {
+        if (overviewOpen)
+            keyboardLayout.dismissPopup();
+    }
 
     mask: Region {
         item: surface
@@ -68,6 +75,12 @@ PanelWindow {
             sourceSize.height: Math.ceil(height * statusBar.devicePixelRatio)
             fillMode: Image.PreserveAspectFit
             smooth: true
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: statusBar.overviewRequested(statusBar.modelData)
+            }
         }
 
         KeyboardLayoutWidget {

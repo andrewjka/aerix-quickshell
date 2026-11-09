@@ -1,9 +1,9 @@
 // Ограниченный INI-подобный формат: строки цветов и числовая секция opacity.
 // Никакого eval: неизвестные, повторные и неполные настройки отклоняются.
 var colorKeys = ["background", "surface", "surfaceElevated", "text", "surfaceText",
-                 "hover", "outline", "shadow", "error"];
+                 "hover", "outline", "shadow", "scrim", "error"];
 var opacityKeys = ["background", "surface", "shadow", "hover", "outline",
-                   "previewTitle", "textEnabled", "textDisabled"];
+                   "scrim", "previewTitle", "textEnabled", "textDisabled"];
 
 function parse(text) {
     var result = { values: {}, opacity: {} };
