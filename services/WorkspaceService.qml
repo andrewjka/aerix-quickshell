@@ -150,9 +150,15 @@ QtObject {
 
     property var moveQueue: []
     property var currentMove: null
+    property var activeMoveWorkspaceIds: []
     property double moveDeadline: 0
     property string operationError: ""
     readonly property bool busy: currentMove !== null || moveQueue.length > 0
+
+    // Overview включает живой экспорт только для этих карточек. Сигнал
+    // повторяется после подтверждения каждого шага, чтобы отсчёт снимка шёл
+    // от последнего изменения раскладки, а не от mouse release.
+    signal previewLiveRequested(var workspaceIds)
 
     function requestToplevelRefresh() {
         // IPC обновляет метаданные, но не гарантирует готовность screencopy.
@@ -163,6 +169,7 @@ QtObject {
         operationError = message;
         moveQueue = [];
         currentMove = null;
+        activeMoveWorkspaceIds = [];
         requestToplevelRefresh();
     }
 
@@ -170,6 +177,8 @@ QtObject {
         if (!moveQueue.length) {
             currentMove = null;
             requestToplevelRefresh();
+            previewLiveRequested(activeMoveWorkspaceIds);
+            activeMoveWorkspaceIds = [];
             return;
         }
         const step = moveQueue[0];
@@ -180,6 +189,7 @@ QtObject {
         }
         moveQueue = moveQueue.slice(1);
         currentMove = step;
+        previewLiveRequested(activeMoveWorkspaceIds);
         moveDeadline = Date.now() + 3000;
         const selector = "address:" + step.address;
         Hyprland.dispatch(Hyprland.usingLua
@@ -192,7 +202,19 @@ QtObject {
         if (busy || !steps.length)
             return false;
         operationError = "";
+        // QML's JavaScript engine does not implement Array.flatMap().
+        // Keep this deliberately plain so DnD cannot fail before dispatch.
+        const workspaceIds = [];
+        for (let index = 0; index < steps.length; index++) {
+            const step = steps[index];
+            if (workspaceIds.indexOf(step.from) < 0)
+                workspaceIds.push(step.from);
+            if (workspaceIds.indexOf(step.to) < 0)
+                workspaceIds.push(step.to);
+        }
+        activeMoveWorkspaceIds = workspaceIds;
         moveQueue = steps;
+        previewLiveRequested(activeMoveWorkspaceIds);
         advanceMove();
         return true;
     }

@@ -14,7 +14,12 @@ Rectangle {
     required property var monitorGeometry
     required property int workspaceId
     property bool captureEnabled: true
+    // True лишь короткое время после DnD: иначе это однокадровый export.
+    property bool liveCapture: false
+    property var snapshotRefreshWorkspaceIds: []
+    property int snapshotRefreshGeneration: 0
     readonly property var capture: snapshotLoader.item
+    property bool hasCachedFrame: false
 
     signal dragStarted(var toplevel, int workspaceId)
     signal dragEnded()
@@ -46,57 +51,96 @@ Rectangle {
     border.color: Theme.selectionOutlineColor
 
     // A window created/resized while the overview is open can reject the
-    // initial export. Retry on a new geometry/workspace notification, not on
-    // a timer. Never discard a valid snapshot while moving the window.
+    // initial export. Never recreate it in the middle of the short live
+    // phase: Hyprland is then still moving the window between workspaces.
     function recoverMissingCapture() {
-        if (capture?.hasContent || !toplevel?.wayland || !parent)
+        if (liveCapture || capture?.hasContent || !toplevel?.wayland || !parent)
             return;
-        captureEnabled = false;
-        Qt.callLater(resumeCapture);
+        rebuildCapture();
     }
 
-    function resumeCapture() { captureEnabled = true; }
+    // The only explicit rebuild occurs after the live window has elapsed.
+    // It opens a fresh Hyprland toplevel-export context and captures the
+    // settled geometry as a static frame.
+    function rebuildCapture() {
+        if (!toplevel?.wayland || !parent)
+            return;
+        captureEnabled = false;
+        Qt.callLater(() => thumbnail.captureEnabled = true);
+    }
 
     onSourceWidthChanged: Qt.callLater(recoverMissingCapture)
     onSourceHeightChanged: Qt.callLater(recoverMissingCapture)
     onWorkspaceIdChanged: Qt.callLater(recoverMissingCapture)
+    onSnapshotRefreshGenerationChanged: {
+        if (snapshotRefreshGeneration > 0
+                && snapshotRefreshWorkspaceIds.indexOf(workspaceId) >= 0)
+            rebuildCapture();
+    }
 
-    // Как в Dock preview: маска вынуждает offscreen-композицию исходного
-    // кадра с корректным premultiplied alpha. Без неё стекло могло показать
-    // уже видимый за overview экран вместо полотна workspace.
-    Loader {
-        id: snapshotLoader
+    // This item remains the ShaderEffectSource input while Loader recreates
+    // the export context. Therefore the cached texture survives the brief
+    // interval where Hyprland has no frame to provide.
+    Item {
+        id: captureSurface
         anchors.fill: parent
-        // Wait until the pool attaches us to a visible workspace canvas.
-        // Moving between canvases must not destroy the one-shot capture.
-        active: thumbnail.captureEnabled && thumbnail.parent !== null && !!thumbnail.toplevel?.wayland
-        sourceComponent: Component {
-            ScreencopyView {
-                id: snapshot
-                anchors.fill: parent
-                captureSource: thumbnail.toplevel?.wayland ?? null
-                constraintSize: Qt.size(320, 180)
-                paintCursor: false
-                // ScreencopyView requests its initial frame itself, even with
-                // live=false. Starting live here queues unnecessary captures
-                // during compositor resize and can discard the good frame.
-                live: false
 
-                layer.enabled: true
-                layer.effect: OpacityMask {
-                    maskSource: Rectangle {
-                        width: snapshot.width
-                        height: snapshot.height
-                        radius: thumbnail.radius
+        Loader {
+            id: snapshotLoader
+            anchors.fill: parent
+            active: thumbnail.captureEnabled && thumbnail.parent !== null
+                && !!thumbnail.toplevel?.wayland
+            sourceComponent: Component {
+                ScreencopyView {
+                    id: snapshot
+                    anchors.fill: parent
+                    captureSource: thumbnail.toplevel?.wayland ?? null
+                    constraintSize: Qt.size(320, 180)
+                    paintCursor: false
+                    live: thumbnail.liveCapture
+
+                    layer.enabled: true
+                    layer.effect: OpacityMask {
+                        maskSource: Rectangle {
+                            width: snapshot.width
+                            height: snapshot.height
+                            radius: thumbnail.radius
+                        }
                     }
                 }
             }
         }
     }
 
+    // A failed live export must never reveal wallpaper plus a title label.
+    // With live=false this is a frozen GPU texture; with live=true it tracks
+    // the source until Hyprland ends the stream, then retains its last frame.
+    ShaderEffectSource {
+        id: cachedFrame
+        anchors.fill: parent
+        sourceItem: captureSurface
+        hideSource: true
+        live: thumbnail.liveCapture && !!thumbnail.capture?.hasContent
+        visible: thumbnail.hasCachedFrame
+        textureSize: Qt.size(Math.max(1, Math.ceil(width * 2)),
+            Math.max(1, Math.ceil(height * 2)))
+    }
+
+    Connections {
+        target: thumbnail.capture
+
+        function onHasContentChanged() {
+            if (!thumbnail.capture?.hasContent)
+                return;
+            thumbnail.hasCachedFrame = true;
+            // With live=false refresh the frozen texture exactly once.
+            Qt.callLater(() => cachedFrame.scheduleUpdate());
+        }
+    }
+
     Text {
         anchors.centerIn: parent
-        visible: !(thumbnail.capture?.hasContent ?? false)
+        visible: !thumbnail.hasCachedFrame
         width: parent.width - 6
         text: String(thumbnail.toplevel?.title ?? "Окно")
         color: Theme.glassTextColor

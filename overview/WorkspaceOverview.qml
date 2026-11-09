@@ -24,6 +24,10 @@ PanelWindow {
     property int dragSourceIndex: -1
     property Item dragVisual: null
     property Item hoveredWindow: null
+    // Список source/target карточек, которые временно показывают live export.
+    property var livePreviewWorkspaceIds: []
+    property var snapshotRefreshWorkspaceIds: []
+    property int snapshotRefreshGeneration: 0
     // Ссылки нужны BackgroundEffect: region обновляется сразу после создания
     // или уничтожения delegate, без геометрического bounding-box всей сетки.
     property var cardItems: []
@@ -64,6 +68,9 @@ PanelWindow {
             monitor: card?.modelData.monitor ?? null
             monitorGeometry: card?.monitorGeometry ?? { x: 0, y: 0, width: 1, height: 1 }
             workspaceId: modelData.workspace?.id ?? -1
+            liveCapture: overview.livePreviewWorkspaceIds.includes(workspaceId)
+            snapshotRefreshWorkspaceIds: overview.snapshotRefreshWorkspaceIds
+            snapshotRefreshGeneration: overview.snapshotRefreshGeneration
             enabled: !WorkspaceService.busy
             z: 1000 - (modelData.lastIpcObject?.focusHistoryID ?? 0)
             onHoverChanged: hovered => {
@@ -245,6 +252,25 @@ PanelWindow {
         easing.bezierCurve: Motion.surfaceSpring.bezierCurve
     }
 
+    // Hyprland не предоставляет события "анимация workspace закончена".
+    // Это намеренно короткое окно живого рендера после подтверждённого DnD;
+    // новое подтверждение перезапускает отсчёт. Затем ScreencopyView хранит
+    // последний кадр и больше не производит экспорт каждый frame.
+    Timer {
+        id: livePreviewTimer
+        interval: 1024
+        repeat: false
+        onTriggered: {
+            const affectedWorkspaceIds = overview.livePreviewWorkspaceIds;
+            overview.livePreviewWorkspaceIds = [];
+            // A moved toplevel invalidates the previous Hyprland export
+            // context. Recreate it only after the compositor had the live
+            // window to finish the workspace animation.
+            overview.snapshotRefreshWorkspaceIds = affectedWorkspaceIds;
+            overview.snapshotRefreshGeneration++;
+        }
+    }
+
     // Hyprland не публикует отдельное событие для каждого изменения at/size.
     // Обновляем геометрию только пока существует lazy overview; после
     // закрытия таймер уничтожается вместе с окном. Захват остаётся однокадровым.
@@ -265,6 +291,17 @@ PanelWindow {
             if (overview.pendingWorkspaceId >= 0
                 && Hyprland.focusedWorkspace?.id === overview.pendingWorkspaceId)
                 overview.close();
+        }
+    }
+
+    Connections {
+        target: WorkspaceService
+
+        function onPreviewLiveRequested(workspaceIds) {
+            if (!workspaceIds?.length)
+                return;
+            overview.livePreviewWorkspaceIds = workspaceIds;
+            livePreviewTimer.restart();
         }
     }
 

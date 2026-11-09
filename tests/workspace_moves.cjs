@@ -6,12 +6,14 @@ const source = readFileSync(`${__dirname}/../services/WorkspaceService.qml`, 'ut
 const methods = [...source.matchAll(/^    function [\s\S]*?^    }/gm)].map(m => m[0]).join('\n');
 function fixture(lua = false) {
     const calls = [];
+    const liveRequests = [];
     const ctx = {
         toplevels: [{ address: 'abc', workspace: { id: 1 } },
             { address: '0xdef', workspace: { id: 1 } },
             { address: '123', workspace: { id: 2 } }],
         moveQueue: [], currentMove: null, operationError: '', moveDeadline: 0,
-        Hyprland: { usingLua: lua, dispatch: command => calls.push(command), refreshToplevels() {} }
+        Hyprland: { usingLua: lua, dispatch: command => calls.push(command), refreshToplevels() {} },
+        previewLiveRequested: workspaceIds => liveRequests.push([...workspaceIds])
     };
     Object.defineProperty(ctx, 'busy', { get: () => ctx.currentMove !== null || ctx.moveQueue.length > 0 });
     vm.createContext(ctx);
@@ -23,7 +25,7 @@ function fixture(lua = false) {
         ctx.windowForAddress(step.address).workspace.id = step.to;
         ctx.advanceMove();
     }
-    return { ctx, calls, confirm };
+    return { ctx, calls, liveRequests, confirm };
 }
 {
     const ctx = { toplevels: [], workspaces: [], slots: [] };
@@ -48,7 +50,7 @@ function fixture(lua = false) {
     ctx.slots.forEach((slot, i) => assert.equal(slot.windows, after[i]));
 }
 for (const lua of [false, true]) {
-    const { ctx, calls, confirm } = fixture(lua);
+    const { ctx, calls, liveRequests, confirm } = fixture(lua);
     assert.equal(ctx.normalizedAddress('ABC'), '0xabc');
     assert.equal(ctx.normalizedAddress('0XABC'), '0xabc');
     assert.equal(ctx.sameWindows([{ address: 'abc' }], [{ address: '0xABC' }]), true,
@@ -60,11 +62,15 @@ for (const lua of [false, true]) {
     'a changed Wayland export handle must replace the affected card model');
     assert.equal(ctx.moveWindow('invalid', 2), false);
     assert.equal(ctx.moveWindow('abc', 10), true);
+    assert.deepEqual([...ctx.activeMoveWorkspaceIds].sort(), [1, 10]);
+    assert.deepEqual(liveRequests[0].sort(), [1, 10]);
     assert.match(calls[0], /address:0xabc/);
     assert.equal(ctx.moveWindow('123', 3), false, 'busy queue must reject a second operation');
     confirm();
     assert.equal(ctx.toplevels[0].workspace.id, 10);
     assert.equal(ctx.busy, false);
+    assert.deepEqual([...ctx.activeMoveWorkspaceIds], []);
+    assert.deepEqual(liveRequests.at(-1).sort(), [1, 10]);
 }
 {
     const { ctx, calls, confirm } = fixture();
