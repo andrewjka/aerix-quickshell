@@ -7,21 +7,56 @@ import Quickshell.Hyprland
 QtObject {
     id: service
 
-    readonly property var slotDefinitions: [
-        { label: "1", workspaceId: 1, slotId: 1 },
-        { label: "2", workspaceId: 2, slotId: 2 },
-        { label: "3", workspaceId: 3, slotId: 3 },
-        { label: "4", workspaceId: 4, slotId: 4 },
-        { label: "5", workspaceId: 5, slotId: 5 },
-        { label: "6", workspaceId: 6, slotId: 6 },
-        { label: "7", workspaceId: 7, slotId: 7 },
-        { label: "8", workspaceId: 8, slotId: 8 },
-        { label: "9", workspaceId: 9, slotId: 9 },
-        { label: "10", workspaceId: 10, slotId: 0 }
-    ]
-
     readonly property var workspaces: Hyprland.workspaces.values
     readonly property var toplevels: Hyprland.toplevels.values
+
+    // Это именно десять долгоживущих объектов, а не новый JS-массив на
+    // каждое IPC-обновление. Repeater благодаря этому сохраняет карточки.
+    // Снимками окон отдельно владеет overview через Hyprland.toplevels.
+    readonly property QtObject slot1: QtObject {
+        readonly property string label: "1"; readonly property int workspaceId: 1; readonly property int slotId: 1
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+    readonly property QtObject slot2: QtObject {
+        readonly property string label: "2"; readonly property int workspaceId: 2; readonly property int slotId: 2
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+    readonly property QtObject slot3: QtObject {
+        readonly property string label: "3"; readonly property int workspaceId: 3; readonly property int slotId: 3
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+    readonly property QtObject slot4: QtObject {
+        readonly property string label: "4"; readonly property int workspaceId: 4; readonly property int slotId: 4
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+    readonly property QtObject slot5: QtObject {
+        readonly property string label: "5"; readonly property int workspaceId: 5; readonly property int slotId: 5
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+    readonly property QtObject slot6: QtObject {
+        readonly property string label: "6"; readonly property int workspaceId: 6; readonly property int slotId: 6
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+    readonly property QtObject slot7: QtObject {
+        readonly property string label: "7"; readonly property int workspaceId: 7; readonly property int slotId: 7
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+    readonly property QtObject slot8: QtObject {
+        readonly property string label: "8"; readonly property int workspaceId: 8; readonly property int slotId: 8
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+    readonly property QtObject slot9: QtObject {
+        readonly property string label: "9"; readonly property int workspaceId: 9; readonly property int slotId: 9
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+    readonly property QtObject slot10: QtObject {
+        readonly property string label: "10"; readonly property int workspaceId: 10; readonly property int slotId: 0
+        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    }
+
+    // Не заменять этот массив: он является стабильной моделью Grid/Reapter.
+    readonly property var slots: [slot1, slot2, slot3, slot4, slot5,
+                                  slot6, slot7, slot8, slot9, slot10]
 
     function monitorGeometry(monitor) {
         const raw = monitor?.lastIpcObject ?? {};
@@ -46,27 +81,51 @@ QtObject {
             && isNormalWorkspace(workspace)) ?? null;
     }
 
-    function slotsForScreen(screenName) {
-        return slotDefinitions.map(definition => {
-            const workspace = workspaceForId(definition.workspaceId);
+    // refreshToplevels() вправе заново обернуть все окна в QML-объекты.
+    // Сравнение ссылок в таком случае пересоздавало все десять Repeater-
+    // delegate, хотя перенос затрагивает лишь source и target. Адрес окна
+    // стабилен в течение его жизни и является нужным ключом модели.
+    function sameWindows(left, right) {
+        return left.length === right.length
+            && left.every((window, index) =>
+                normalizedAddress(window.address)
+                === normalizedAddress(right[index].address)
+                // Один адрес может получить новый Wayland export-handle после
+                // переноса. В таком случае обновляем только эту карточку.
+                && window.wayland === right[index].wayland);
+    }
+
+    function refreshSlots() {
+        for (const slot of slots) {
+            const workspace = workspaceForId(slot.workspaceId);
             const monitor = workspace?.monitor ?? null;
+            const monitorName = String(monitor?.name ?? "");
             const windows = toplevels.filter(toplevel =>
-                toplevel.workspace?.id === definition.workspaceId
+                toplevel.workspace?.id === slot.workspaceId
                 && isNormalWorkspace(toplevel.workspace));
 
-            return {
-                label: definition.label,
-                slotId: definition.slotId,
-                workspaceId: definition.workspaceId,
-                workspace: workspace,
-                monitor: monitor,
-                monitorName: String(monitor?.name ?? ""),
-                isOnScreen: monitor?.name === screenName,
-                isActive: workspace?.active ?? false,
-                windows: windows
-            };
-        });
+            // Извещения получает только слот с фактическим изменением:
+            // после переноса — исходный и целевой workspace.
+            if (slot.workspace !== workspace) slot.workspace = workspace;
+            if (slot.monitor !== monitor) slot.monitor = monitor;
+            if (slot.monitorName !== monitorName) slot.monitorName = monitorName;
+            if (slot.isActive !== Boolean(workspace?.active))
+                slot.isActive = Boolean(workspace?.active);
+            if (!sameWindows(slot.windows, windows)) {
+                slot.windows = windows;
+            }
+        }
     }
+
+    // Сохранён для существующих вызовов. Экран больше не участвует в
+    // построении модели: monitor привязан к каждому стабильному слоту.
+    function slotsForScreen(screenName) {
+        return slots;
+    }
+
+    onWorkspacesChanged: refreshSlots()
+    onToplevelsChanged: refreshSlots()
+    Component.onCompleted: refreshSlots()
 
     /** Запрашивает переход, а UI закрывается только по focusedWorkspaceChanged. */
     function activateWorkspace(workspaceId) {
@@ -93,15 +152,10 @@ QtObject {
     property var currentMove: null
     property double moveDeadline: 0
     property string operationError: ""
-    property var previewRevisions: ({})
-    property var affectedWorkspaces: []
     readonly property bool busy: currentMove !== null || moveQueue.length > 0
 
-    function invalidatePreviews() {
-        const next = Object.assign({}, previewRevisions);
-        for (const id of affectedWorkspaces) next[id] = (next[id] ?? 0) + 1;
-        previewRevisions = next;
-        affectedWorkspaces = [];
+    function requestToplevelRefresh() {
+        // IPC обновляет метаданные, но не гарантирует готовность screencopy.
         Hyprland.refreshToplevels();
     }
 
@@ -109,13 +163,13 @@ QtObject {
         operationError = message;
         moveQueue = [];
         currentMove = null;
-        invalidatePreviews();
+        requestToplevelRefresh();
     }
 
     function advanceMove() {
         if (!moveQueue.length) {
             currentMove = null;
-            invalidatePreviews();
+            requestToplevelRefresh();
             return;
         }
         const step = moveQueue[0];
@@ -138,12 +192,6 @@ QtObject {
         if (busy || !steps.length)
             return false;
         operationError = "";
-        const affected = [];
-        for (const step of steps) {
-            if (affected.indexOf(step.from) < 0) affected.push(step.from);
-            if (affected.indexOf(step.to) < 0) affected.push(step.to);
-        }
-        affectedWorkspaces = affected;
         moveQueue = steps;
         advanceMove();
         return true;

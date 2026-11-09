@@ -13,7 +13,8 @@ Rectangle {
     required property var monitor
     required property var monitorGeometry
     required property int workspaceId
-    property int previewRevision: 0
+    property bool captureEnabled: true
+    readonly property var capture: snapshotLoader.item
 
     signal dragStarted(var toplevel, int workspaceId)
     signal dragEnded()
@@ -44,39 +45,58 @@ Rectangle {
     border.width: 0
     border.color: Theme.selectionOutlineColor
 
+    // A window created/resized while the overview is open can reject the
+    // initial export. Retry on a new geometry/workspace notification, not on
+    // a timer. Never discard a valid snapshot while moving the window.
+    function recoverMissingCapture() {
+        if (capture?.hasContent || !toplevel?.wayland || !parent)
+            return;
+        captureEnabled = false;
+        Qt.callLater(resumeCapture);
+    }
+
+    function resumeCapture() { captureEnabled = true; }
+
+    onSourceWidthChanged: Qt.callLater(recoverMissingCapture)
+    onSourceHeightChanged: Qt.callLater(recoverMissingCapture)
+    onWorkspaceIdChanged: Qt.callLater(recoverMissingCapture)
+
     // Как в Dock preview: маска вынуждает offscreen-композицию исходного
     // кадра с корректным premultiplied alpha. Без неё стекло могло показать
     // уже видимый за overview экран вместо полотна workspace.
-    ScreencopyView {
-        id: snapshot
+    Loader {
+        id: snapshotLoader
         anchors.fill: parent
-        captureSource: {
-            // previewRevision сохраняет binding и запускает новый кадр после
-            // переноса, не превращая captureSource в одноразовое присваивание.
-            const revision = thumbnail.previewRevision;
-            return revision >= 0 ? thumbnail.toplevel?.wayland ?? null : null;
-        }
-        constraintSize: Qt.size(320, 180)
-        paintCursor: false
-        live: false
-        onCaptureSourceChanged: live = captureSource !== null
-        onHasContentChanged: {
-            if (hasContent) live = false;
-        }
+        // Wait until the pool attaches us to a visible workspace canvas.
+        // Moving between canvases must not destroy the one-shot capture.
+        active: thumbnail.captureEnabled && thumbnail.parent !== null && !!thumbnail.toplevel?.wayland
+        sourceComponent: Component {
+            ScreencopyView {
+                id: snapshot
+                anchors.fill: parent
+                captureSource: thumbnail.toplevel?.wayland ?? null
+                constraintSize: Qt.size(320, 180)
+                paintCursor: false
+                // ScreencopyView requests its initial frame itself, even with
+                // live=false. Starting live here queues unnecessary captures
+                // during compositor resize and can discard the good frame.
+                live: false
 
-        layer.enabled: true
-        layer.effect: OpacityMask {
-            maskSource: Rectangle {
-                width: snapshot.width
-                height: snapshot.height
-                radius: thumbnail.radius
+                layer.enabled: true
+                layer.effect: OpacityMask {
+                    maskSource: Rectangle {
+                        width: snapshot.width
+                        height: snapshot.height
+                        radius: thumbnail.radius
+                    }
+                }
             }
         }
     }
 
     Text {
         anchors.centerIn: parent
-        visible: !snapshot.hasContent
+        visible: !(thumbnail.capture?.hasContent ?? false)
         width: parent.width - 6
         text: String(thumbnail.toplevel?.title ?? "Окно")
         color: Theme.glassTextColor

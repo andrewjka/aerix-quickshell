@@ -11,12 +11,13 @@ function fixture(lua = false) {
             { address: '0xdef', workspace: { id: 1 } },
             { address: '123', workspace: { id: 2 } }],
         moveQueue: [], currentMove: null, operationError: '', moveDeadline: 0,
-        previewRevisions: {}, affectedWorkspaces: [],
         Hyprland: { usingLua: lua, dispatch: command => calls.push(command), refreshToplevels() {} }
     };
     Object.defineProperty(ctx, 'busy', { get: () => ctx.currentMove !== null || ctx.moveQueue.length > 0 });
     vm.createContext(ctx);
     vm.runInContext(methods, ctx);
+    // Queue tests do not model asynchronous compositor metadata updates.
+    ctx.refreshSlots = () => {};
     function confirm() {
         const step = ctx.currentMove;
         ctx.windowForAddress(step.address).workspace.id = step.to;
@@ -24,10 +25,39 @@ function fixture(lua = false) {
     }
     return { ctx, calls, confirm };
 }
+{
+    const ctx = { toplevels: [], workspaces: [], slots: [] };
+    vm.createContext(ctx);
+    vm.runInContext(methods, ctx);
+    for (let id = 1; id <= 10; id++) {
+        ctx.workspaces.push({ id, monitor: { name: 'test' } });
+        ctx.slots.push({ workspaceId: id, windows: [] });
+    }
+    ctx.toplevels = [1, 2, 3].map(id => ({
+        address: String(id), workspace: ctx.workspaces[id - 1]
+    }));
+    ctx.refreshSlots();
+    const before = ctx.slots.map(slot => slot.windows);
+    ctx.toplevels[0].workspace = ctx.workspaces[1];
+    ctx.refreshSlots();
+    assert.notEqual(ctx.slots[0].windows, before[0]);
+    assert.notEqual(ctx.slots[1].windows, before[1]);
+    for (let i = 2; i < 10; i++) assert.equal(ctx.slots[i].windows, before[i]);
+    const after = ctx.slots.map(slot => slot.windows);
+    ctx.refreshSlots();
+    ctx.slots.forEach((slot, i) => assert.equal(slot.windows, after[i]));
+}
 for (const lua of [false, true]) {
     const { ctx, calls, confirm } = fixture(lua);
     assert.equal(ctx.normalizedAddress('ABC'), '0xabc');
     assert.equal(ctx.normalizedAddress('0XABC'), '0xabc');
+    assert.equal(ctx.sameWindows([{ address: 'abc' }], [{ address: '0xABC' }]), true,
+        'a fresh Hyprland wrapper for the same window must not replace a card model');
+    assert.equal(ctx.sameWindows([{ address: 'abc' }], [{ address: 'def' }]), false);
+    const oldHandle = {};
+    assert.equal(ctx.sameWindows([{ address: 'abc', wayland: oldHandle }],
+        [{ address: '0xABC', wayland: {} }]), false,
+    'a changed Wayland export handle must replace the affected card model');
     assert.equal(ctx.moveWindow('invalid', 2), false);
     assert.equal(ctx.moveWindow('abc', 10), true);
     assert.match(calls[0], /address:0xabc/);
@@ -43,8 +73,6 @@ for (const lua of [false, true]) {
     while (ctx.busy) confirm();
     assert.deepEqual(ctx.toplevels.map(w => w.workspace.id), [2, 2, 1]);
     assert.equal(calls.length, 3, 'move each original window exactly once');
-    assert.equal(ctx.previewRevisions[1], 1);
-    assert.equal(ctx.previewRevisions[2], 1);
     ctx.swapWorkspaces({ workspaceId: 2 }, { workspaceId: 10 });
     while (ctx.busy) confirm();
     assert.deepEqual(ctx.toplevels.map(w => w.workspace.id), [10, 10, 1]);

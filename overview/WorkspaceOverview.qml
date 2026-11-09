@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQml.Models
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
@@ -45,6 +46,41 @@ PanelWindow {
         const next = cardItems.slice();
         next[index] = item;
         cardItems = next;
+    }
+
+    // Capture ownership follows the toplevel, not a workspace's JS array.
+    // Reparenting preserves the captured buffer even while Hyprland resizes
+    // the moved window and cannot yet export another frame.
+    Instantiator {
+        model: Hyprland.toplevels
+        delegate: WorkspaceWindowThumbnail {
+            id: windowThumbnail
+            required property var modelData
+            readonly property var card: overview.cardItems.find(item =>
+                item?.modelData.workspaceId === workspaceId) ?? null
+            parent: card?.previewCanvas ?? null
+            visible: card !== null
+            toplevel: modelData
+            monitor: card?.modelData.monitor ?? null
+            monitorGeometry: card?.monitorGeometry ?? { x: 0, y: 0, width: 1, height: 1 }
+            workspaceId: modelData.workspace?.id ?? -1
+            enabled: !WorkspaceService.busy
+            z: 1000 - (modelData.lastIpcObject?.focusHistoryID ?? 0)
+            onHoverChanged: hovered => {
+                overview.keyboardSelection = false;
+                if (hovered) overview.hoveredWindow = windowThumbnail;
+                else if (overview.hoveredWindow === windowThumbnail) overview.hoveredWindow = null;
+            }
+            onInteractionChanged: held => overview.holdSlots(held)
+            onClicked: { if (card) overview.requestWorkspace(card.index); }
+            onDragStarted: (toplevel, workspaceId) =>
+                overview.beginWindowDrag(toplevel, workspaceId, windowThumbnail)
+            onDragEnded: overview.endWindowDrag()
+            onDragMoved: (source, pointerX, pointerY) =>
+                overview.updateWindowDropTarget(source, pointerX, pointerY)
+            onDragReleased: (source, pointerX, pointerY) =>
+                overview.finishWindowDrag(source, pointerX, pointerY)
+        }
     }
 
     screen: targetScreen
@@ -216,7 +252,10 @@ PanelWindow {
         interval: 500
         running: overview.heldSlots === null && !overview.draggingWindow && !WorkspaceService.busy
         repeat: true
-        onTriggered: Hyprland.refreshToplevels()
+        onTriggered: {
+            Hyprland.refreshToplevels();
+            WorkspaceService.refreshSlots();
+        }
     }
 
     Connections {
@@ -362,41 +401,6 @@ PanelWindow {
                                 sourceSize.height: Math.ceil(workspaceCanvas.height * (card.modelData.monitor?.scale ?? 1.25))
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
-                            }
-
-                            Repeater {
-                                model: card.modelData.windows
-
-                                WorkspaceWindowThumbnail {
-                                    id: windowThumbnail
-                                    required property var modelData
-                                    toplevel: modelData
-                                    monitor: card.modelData.monitor
-                                    monitorGeometry: card.monitorGeometry
-                                    workspaceId: card.modelData.workspaceId
-                                    previewRevision: WorkspaceService.previewRevisions[workspaceId] ?? 0
-                                    onHoverChanged: hovered => {
-                                        overview.keyboardSelection = false;
-                                        if (hovered) overview.hoveredWindow = windowThumbnail;
-                                        else if (overview.hoveredWindow === windowThumbnail) overview.hoveredWindow = null;
-                                    }
-                                    enabled: !WorkspaceService.busy
-                                    onInteractionChanged: held => overview.holdSlots(held)
-                                    onClicked: overview.requestWorkspace(card.index)
-                                    z: 1000 - (modelData.lastIpcObject?.focusHistoryID ?? 0)
-                                    onDragStarted: (toplevel, workspaceId) => {
-                                        overview.beginWindowDrag(toplevel, workspaceId, windowThumbnail);
-                                    }
-                                    onDragEnded: {
-                                        overview.endWindowDrag();
-                                    }
-                                    onDragMoved: (source, pointerX, pointerY) => {
-                                        overview.updateWindowDropTarget(source, pointerX, pointerY);
-                                    }
-                                    onDragReleased: (source, pointerX, pointerY) => {
-                                        overview.finishWindowDrag(source, pointerX, pointerY);
-                                    }
-                                }
                             }
 
                             Text {
