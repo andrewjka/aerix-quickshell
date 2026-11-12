@@ -7,57 +7,54 @@ import Quickshell.Hyprland
 QtObject {
     id: service
 
+    // overview берёт сервис на время жизни (acquire/release). Опрос геометрии
+    // по событиям Hyprland выполняется только пока есть хотя бы один потребитель.
+    property int consumers: 0
+    function acquire() { consumers += 1; }
+    function release() { consumers = Math.max(0, consumers - 1); }
+
     readonly property var workspaces: Hyprland.workspaces.values
     readonly property var toplevels: Hyprland.toplevels.values
 
-    // Это именно десять долгоживущих объектов, а не новый JS-массив на
-    // каждое IPC-обновление. Repeater благодаря этому сохраняет карточки.
-    // Снимками окон отдельно владеет overview через Hyprland.toplevels.
-    readonly property QtObject slot1: QtObject {
-        readonly property string label: "1"; readonly property int workspaceId: 1; readonly property int slotId: 1
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
-    }
-    readonly property QtObject slot2: QtObject {
-        readonly property string label: "2"; readonly property int workspaceId: 2; readonly property int slotId: 2
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
-    }
-    readonly property QtObject slot3: QtObject {
-        readonly property string label: "3"; readonly property int workspaceId: 3; readonly property int slotId: 3
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
-    }
-    readonly property QtObject slot4: QtObject {
-        readonly property string label: "4"; readonly property int workspaceId: 4; readonly property int slotId: 4
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
-    }
-    readonly property QtObject slot5: QtObject {
-        readonly property string label: "5"; readonly property int workspaceId: 5; readonly property int slotId: 5
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
-    }
-    readonly property QtObject slot6: QtObject {
-        readonly property string label: "6"; readonly property int workspaceId: 6; readonly property int slotId: 6
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
-    }
-    readonly property QtObject slot7: QtObject {
-        readonly property string label: "7"; readonly property int workspaceId: 7; readonly property int slotId: 7
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
-    }
-    readonly property QtObject slot8: QtObject {
-        readonly property string label: "8"; readonly property int workspaceId: 8; readonly property int slotId: 8
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
-    }
-    readonly property QtObject slot9: QtObject {
-        readonly property string label: "9"; readonly property int workspaceId: 9; readonly property int slotId: 9
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
-    }
-    readonly property QtObject slot10: QtObject {
-        readonly property string label: "10"; readonly property int workspaceId: 10; readonly property int slotId: 0
-        property var workspace: null; property var monitor: null; property string monitorName: ""; property bool isActive: false; property var windows: []
+    // Геометрия окон стабилизирована после переноса или другого изменения
+    // раскладки. Подписчики (overview) перезахватывают кадры именно сейчас.
+    signal settled()
+
+    // Слот — долгоживущий объект, его поля workspace/monitor/isActive —
+    // привязки (bindings), поэтому они не устаревают при переносе workspace
+    // на другой монитор или смене активного. Состав окон обновляется
+    // отдельно через refreshSlots(), только при реальном изменении.
+    component Slot: QtObject {
+        required property var owner
+        required property string label
+        required property int workspaceId
+        required property int slotId
+
+        readonly property var workspace: owner.workspaceForId(workspaceId)
+        readonly property var monitor: workspace?.monitor ?? null
+        readonly property string monitorName: String(monitor?.name ?? "")
+        readonly property bool isActive: Boolean(workspace?.active)
+        property var windows: []
     }
 
-    // Не заменять этот массив: он является стабильной моделью Grid/Reapter.
+    readonly property QtObject slot1: Slot { owner: service; label: "1"; workspaceId: 1; slotId: 1 }
+    readonly property QtObject slot2: Slot { owner: service; label: "2"; workspaceId: 2; slotId: 2 }
+    readonly property QtObject slot3: Slot { owner: service; label: "3"; workspaceId: 3; slotId: 3 }
+    readonly property QtObject slot4: Slot { owner: service; label: "4"; workspaceId: 4; slotId: 4 }
+    readonly property QtObject slot5: Slot { owner: service; label: "5"; workspaceId: 5; slotId: 5 }
+    readonly property QtObject slot6: Slot { owner: service; label: "6"; workspaceId: 6; slotId: 6 }
+    readonly property QtObject slot7: Slot { owner: service; label: "7"; workspaceId: 7; slotId: 7 }
+    readonly property QtObject slot8: Slot { owner: service; label: "8"; workspaceId: 8; slotId: 8 }
+    readonly property QtObject slot9: Slot { owner: service; label: "9"; workspaceId: 9; slotId: 9 }
+    readonly property QtObject slot10: Slot { owner: service; label: "10"; workspaceId: 10; slotId: 0 }
+
+    // Не заменять этот массив: он является стабильной моделью Grid/Repeater.
     readonly property var slots: [slot1, slot2, slot3, slot4, slot5,
                                   slot6, slot7, slot8, slot9, slot10]
 
+    // at/size окон у Hyprland — в логических координатах, поэтому ширина и
+    // высота монитора делятся на scale; transform с нечётным значением
+    // означает поворот на 90°, и стороны меняются местами.
     function monitorGeometry(monitor) {
         const raw = monitor?.lastIpcObject ?? {};
         const scale = Math.max(0.1, Number(raw.scale ?? monitor?.scale ?? 1));
@@ -66,7 +63,8 @@ QtObject {
         const height = Number(raw.height ?? monitor?.height ?? 1080);
         return { x: Number(monitor?.x ?? 0), y: Number(monitor?.y ?? 0),
             width: (rotated ? height : width) / scale,
-            height: (rotated ? width : height) / scale };
+            height: (rotated ? width : height) / scale,
+            scale: scale };
     }
 
     function isNormalWorkspace(workspace) {
@@ -82,7 +80,7 @@ QtObject {
     }
 
     // refreshToplevels() вправе заново обернуть все окна в QML-объекты.
-    // Сравнение ссылок в таком случае пересоздавало все десять Repeater-
+    // Сравнение ссылок в таком случае пересоздавало бы все десять Repeater-
     // delegate, хотя перенос затрагивает лишь source и target. Адрес окна
     // стабилен в течение его жизни и является нужным ключом модели.
     function sameWindows(left, right) {
@@ -95,26 +93,30 @@ QtObject {
                 && window.wayland === right[index].wayland);
     }
 
+    // Обновляет только состав окон. workspace/monitor/isActive слотов
+    // пересчитываются сами через привязки.
     function refreshSlots() {
         for (const slot of slots) {
-            const workspace = workspaceForId(slot.workspaceId);
-            const monitor = workspace?.monitor ?? null;
-            const monitorName = String(monitor?.name ?? "");
             const windows = toplevels.filter(toplevel =>
                 toplevel.workspace?.id === slot.workspaceId
                 && isNormalWorkspace(toplevel.workspace));
-
-            // Извещения получает только слот с фактическим изменением:
-            // после переноса — исходный и целевой workspace.
-            if (slot.workspace !== workspace) slot.workspace = workspace;
-            if (slot.monitor !== monitor) slot.monitor = monitor;
-            if (slot.monitorName !== monitorName) slot.monitorName = monitorName;
-            if (slot.isActive !== Boolean(workspace?.active))
-                slot.isActive = Boolean(workspace?.active);
-            if (!sameWindows(slot.windows, windows)) {
+            if (!sameWindows(slot.windows, windows))
                 slot.windows = windows;
-            }
         }
+    }
+
+    // Много источников (по одному на окно) сообщают об одном и том же IPC-
+    // обновлении. Сворачиваем их в один проход после текущей пачки изменений.
+    property bool syncQueued: false
+    function scheduleSync() {
+        if (syncQueued)
+            return;
+        syncQueued = true;
+        Qt.callLater(() => {
+            service.syncQueued = false;
+            service.refreshSlots();
+            service.checkCurrentMove();
+        });
     }
 
     // Сохранён для существующих вызовов. Экран больше не участвует в
@@ -123,10 +125,95 @@ QtObject {
         return slots;
     }
 
-    onWorkspacesChanged: refreshSlots()
-    onToplevelsChanged: refreshSlots()
+    onWorkspacesChanged: scheduleSync()
+    onToplevelsChanged: scheduleSync()
     Component.onCompleted: refreshSlots()
 
+    // --- Стабилизация геометрии --------------------------------------------
+    // Hyprland не шлёт событие об изменении размера окна, а `hyprctl clients`
+    // может отдавать текущее (анимируемое) значение. Поэтому после переноса
+    // ограниченное по времени число раз перечитываем окна, пока at/size не
+    // перестанут меняться, и только потом сообщаем об этом через settled().
+    readonly property int settleIntervalMs: 80
+    readonly property int settleStableTicks: 3
+    readonly property int settleMaxTicks: 25
+    // true от начала переноса до стабилизации геометрии: миниатюры в это
+    // время не перезахватывают кадры по каждому промежуточному размеру.
+    property bool moveSettling: false
+    property string settleSignature: ""
+    property int settleStable: 0
+    property int settleTicks: 0
+
+    property Timer settleTimer: Timer {
+        interval: service.settleIntervalMs
+        repeat: true
+        onTriggered: service.settleTick()
+    }
+
+    function geometrySignature() {
+        return toplevels.map(window => {
+            const raw = window.lastIpcObject ?? {};
+            const at = raw.at ?? [];
+            const size = raw.size ?? [];
+            return normalizedAddress(window.address) + "@" + (window.workspace?.id ?? "")
+                + ":" + at[0] + "," + at[1] + "," + size[0] + "," + size[1];
+        }).join("|");
+    }
+
+    function startSettle(isMove) {
+        if (isMove)
+            moveSettling = true;
+        settleSignature = geometrySignature();
+        settleStable = 0;
+        settleTicks = 0;
+        settleTimer.restart();
+        Hyprland.refreshToplevels();
+    }
+
+    function settleTick() {
+        // Пока выполняется очередь переноса, геометрия не показательна.
+        if (busy) {
+            settleStable = 0;
+            Hyprland.refreshToplevels();
+            return;
+        }
+        settleTicks += 1;
+        const signature = geometrySignature();
+        if (signature === settleSignature) {
+            settleStable += 1;
+        } else {
+            settleStable = 0;
+            settleSignature = signature;
+        }
+        if (settleStable >= settleStableTicks || settleTicks >= settleMaxTicks) {
+            finishSettle();
+            return;
+        }
+        Hyprland.refreshToplevels();
+    }
+
+    function finishSettle() {
+        settleTimer.stop();
+        moveSettling = false;
+        settled();
+    }
+
+    // События, после которых раскладка окон могла измениться.
+    readonly property var geometryEvents: ["movewindowv2", "openwindow", "closewindow",
+        "changefloatingmode", "fullscreen"]
+
+    property Connections hyprlandEvents: Connections {
+        target: Hyprland
+
+        function onRawEvent(event) {
+            if (service.consumers <= 0)
+                return;
+            if (service.geometryEvents.indexOf(String(event?.name ?? "")) >= 0)
+                service.startSettle(false);
+        }
+    }
+
+    // --- Переносы -------------------------------------------------------------
     /** Запрашивает переход, а UI закрывается только по focusedWorkspaceChanged. */
     function activateWorkspace(workspaceId) {
         if (!Number.isInteger(workspaceId) || workspaceId < 1 || workspaceId > 10)
@@ -150,15 +237,18 @@ QtObject {
 
     property var moveQueue: []
     property var currentMove: null
-    property var activeMoveWorkspaceIds: []
-    property double moveDeadline: 0
     property string operationError: ""
     readonly property bool busy: currentMove !== null || moveQueue.length > 0
 
-    // Overview включает живой экспорт только для этих карточек. Сигнал
-    // повторяется после подтверждения каждого шага, чтобы отсчёт снимка шёл
-    // от последнего изменения раскладки, а не от mouse release.
-    signal previewLiveRequested(var workspaceIds)
+    // Предохранитель: если Hyprland отклонил dispatch (ошибка Lua, закреплённое
+    // окно, правило), очередь не должна блокировать интерфейс навсегда. Сервис —
+    // синглтон и переживает закрытие overview.
+    readonly property int moveStepTimeoutMs: 2500
+    property Timer stepTimer: Timer {
+        interval: service.moveStepTimeoutMs
+        repeat: false
+        onTriggered: service.failMove("Перенос не подтверждён Hyprland: окно не сменило workspace.")
+    }
 
     function requestToplevelRefresh() {
         // IPC обновляет метаданные, но не гарантирует готовность screencopy.
@@ -166,19 +256,18 @@ QtObject {
     }
 
     function failMove(message) {
+        stepTimer.stop();
         operationError = message;
         moveQueue = [];
         currentMove = null;
-        activeMoveWorkspaceIds = [];
-        requestToplevelRefresh();
+        startSettle(true);
     }
 
     function advanceMove() {
         if (!moveQueue.length) {
+            stepTimer.stop();
             currentMove = null;
-            requestToplevelRefresh();
-            previewLiveRequested(activeMoveWorkspaceIds);
-            activeMoveWorkspaceIds = [];
+            startSettle(true);
             return;
         }
         const step = moveQueue[0];
@@ -189,8 +278,7 @@ QtObject {
         }
         moveQueue = moveQueue.slice(1);
         currentMove = step;
-        previewLiveRequested(activeMoveWorkspaceIds);
-        moveDeadline = Date.now() + 3000;
+        stepTimer.restart();
         const selector = "address:" + step.address;
         Hyprland.dispatch(Hyprland.usingLua
             ? `hl.dsp.window.move({ window = "${selector}", workspace = "${step.to}", follow = false })`
@@ -198,23 +286,25 @@ QtObject {
         Hyprland.refreshToplevels();
     }
 
+    // IPC is the completion hook: dispatch requests a toplevel refresh, and
+    // this advances the queue only after the refreshed model changed workspace.
+    function checkCurrentMove() {
+        if (!currentMove)
+            return;
+        const window = windowForAddress(currentMove.address);
+        if (!window) {
+            failMove("Перенос остановлен: окно закрыто.");
+        } else if (window.workspace?.id === currentMove.to) {
+            advanceMove();
+        }
+    }
+
     function startMoves(steps) {
         if (busy || !steps.length)
             return false;
         operationError = "";
-        // QML's JavaScript engine does not implement Array.flatMap().
-        // Keep this deliberately plain so DnD cannot fail before dispatch.
-        const workspaceIds = [];
-        for (let index = 0; index < steps.length; index++) {
-            const step = steps[index];
-            if (workspaceIds.indexOf(step.from) < 0)
-                workspaceIds.push(step.from);
-            if (workspaceIds.indexOf(step.to) < 0)
-                workspaceIds.push(step.to);
-        }
-        activeMoveWorkspaceIds = workspaceIds;
+        moveSettling = true;
         moveQueue = steps;
-        previewLiveRequested(activeMoveWorkspaceIds);
         advanceMove();
         return true;
     }
@@ -222,10 +312,12 @@ QtObject {
     function moveWindow(address, workspaceId) {
         const normalized = normalizedAddress(address);
         const window = windowForAddress(normalized);
-        if (!normalized || !window || !Number.isInteger(workspaceId)
-            || workspaceId < 1 || workspaceId > 10 || window.workspace?.id === workspaceId)
+        const fromId = window?.workspace?.id;
+        if (!normalized || !window || !Number.isInteger(fromId)
+            || !Number.isInteger(workspaceId)
+            || workspaceId < 1 || workspaceId > 10 || fromId === workspaceId)
             return false;
-        return startMoves([{ address: normalized, from: window.workspace.id, to: workspaceId }]);
+        return startMoves([{ address: normalized, from: fromId, to: workspaceId }]);
     }
 
     // Составы фиксируются ДО первой команды; каждое окно переносится один раз.
@@ -237,29 +329,14 @@ QtObject {
         const to = targetSlot.workspaceId;
         if (![from, to].every(id => Number.isInteger(id) && id >= 1 && id <= 10))
             return false;
-        const steps = toplevels.filter(window => window.workspace?.id === from
-            || window.workspace?.id === to).map(window => ({
+        const steps = toplevels.filter(window => window.workspace
+            && (window.workspace.id === from || window.workspace.id === to))
+            .map(window => ({
                 address: normalizedAddress(window.address), from: window.workspace.id,
                 to: window.workspace.id === from ? to : from
-            }));
+            }))
+            .filter(step => step.address.length > 0);
         return startMoves(steps);
     }
 
-    // Подтверждение живой моделью; очередь переживает закрытие overlay.
-    property Timer moveCheck: Timer {
-        interval: 100
-        running: service.currentMove !== null
-        repeat: true
-        onTriggered: {
-            const step = service.currentMove;
-            const window = service.windowForAddress(step.address);
-            if (window?.workspace?.id === step.to) {
-                service.advanceMove();
-            } else if (!window || Date.now() >= service.moveDeadline) {
-                service.failMove("Hyprland не подтвердил перенос. Выполненная часть обмена сохранена.");
-            } else {
-                Hyprland.refreshToplevels();
-            }
-        }
-    }
 }
