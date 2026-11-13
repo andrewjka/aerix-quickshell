@@ -1,7 +1,6 @@
 # Локальные настройки инструментов и секреты.
 # settings.json содержит токен доступа и не должен попадать в репозиторий.
-.claude/settings.json
-.claude/settings.local.json
+.claude/
 
 # Генерируется Quickshell: симлинк на runtime-путь qmlls.
 .qmlls.ini
