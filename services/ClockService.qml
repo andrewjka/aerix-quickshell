@@ -9,5 +9,8 @@ SystemClock {
     enabled: Quickshell.screens.length > 0
     precision: SystemClock.Minutes
 
-    readonly property string timeText: Qt.formatTime(date, "HH:mm")
+    readonly property var displayLocale: Qt.locale("en_US")
+    readonly property string timeText: date.toLocaleTimeString(displayLocale, "HH:mm")
+    readonly property string dateText: date.toLocaleDateString(displayLocale, "MMM d, yyyy")
+    readonly property string displayText: timeText + " | " + dateText
 }
