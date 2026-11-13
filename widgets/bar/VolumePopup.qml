@@ -185,9 +185,21 @@ PanelWindow {
                     }
                 }
 
+                Text {
+                    id: volumePercent
+                    anchors.left: volumeIcon.right
+                    anchors.leftMargin: Metrics.spacing
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: String(AudioService.volumePercent).padStart(2, "0")
+                    color: Theme.foregroundColor
+                    font.pixelSize: Metrics.statusBarFontSize
+                    font.weight: Font.Medium
+                    verticalAlignment: Text.AlignVCenter
+                }
+
                 Item {
                     id: volumeSlider
-                    anchors.left: volumeIcon.right
+                    anchors.left: volumePercent.right
                     anchors.leftMargin: Metrics.spacing
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter

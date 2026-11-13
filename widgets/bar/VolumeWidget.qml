@@ -13,8 +13,8 @@ Item {
     required property var barWindow
     property bool popupOpen: false
     readonly property bool canInteract: AudioService.available
-    implicitWidth: volumePercent.implicitWidth + 4 + volumeIcon.width
-    implicitHeight: Math.max(volumePercent.implicitHeight, volumeIcon.height)
+    implicitWidth: volumeIcon.width
+    implicitHeight: volumeIcon.height
     width: implicitWidth
     height: implicitHeight
 
@@ -40,8 +40,7 @@ Item {
 
     Image {
         id: volumeIcon
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.centerIn: parent
         width: Metrics.statusBarFontSize + 2
         height: width
         source: Qt.resolvedUrl("../../assets/icons/" + AudioService.iconName)
@@ -54,21 +53,6 @@ Item {
             color: widget.canInteract ? Theme.foregroundColor
                                      : Theme.disabledForegroundColor
         }
-    }
-
-    Text {
-        id: volumePercent
-        anchors.left: parent.left
-        anchors.right: volumeIcon.left
-        anchors.rightMargin: 4
-        anchors.verticalCenter: parent.verticalCenter
-        text: String(AudioService.volumePercent).padStart(2, "0")
-        color: widget.canInteract ? Theme.foregroundColor
-                                 : Theme.disabledForegroundColor
-        font.pixelSize: Metrics.statusBarFontSize
-        font.weight: Font.Medium
-        horizontalAlignment: Text.AlignRight
-        verticalAlignment: Text.AlignVCenter
     }
 
     MouseArea {
