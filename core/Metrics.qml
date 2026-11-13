@@ -36,8 +36,8 @@ QtObject {
     readonly property int previewWidth: 440
     readonly property int previewHeight: 248
     readonly property int previewTitleHeight: 30
+    // Единое скругление всех поверхностей, миниатюр и состояний интерфейса.
     readonly property real panelRadius: 8
-    readonly property real previewRadius: 12
     // Единая тень поверхностей Dock и status-bar по параметрам Hyprland.
     readonly property int panelShadowRadius: 4
 }

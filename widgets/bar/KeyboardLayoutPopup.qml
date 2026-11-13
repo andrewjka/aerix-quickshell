@@ -203,7 +203,7 @@ PanelWindow {
             y: popupFrame.y
             width: popupFrame.width
             height: popupFrame.height
-            radius: popupFrame.radius
+            radius: Metrics.panelRadius
             scale: popupFrame.scale
             transformOrigin: popupFrame.transformOrigin
             color: Theme.transparentColor
@@ -286,7 +286,7 @@ PanelWindow {
                         anchors.fill: parent
                         anchors.leftMargin: 1
                         anchors.rightMargin: 1
-                        radius: Metrics.panelRadius - 2
+                        radius: Metrics.panelRadius
                         color: Theme.hoverColor
                         opacity: 0
                         state: rowMouse.containsMouse ? "hovered" : ""
@@ -314,7 +314,7 @@ PanelWindow {
                         anchors.fill: parent
                         anchors.leftMargin: 1
                         anchors.rightMargin: 1
-                        radius: Metrics.panelRadius - 2
+                        radius: Metrics.panelRadius
                         color: row.navigationCurrent ? Theme.hoverColor
                                                      : Theme.transparentColor
                         border.width: row.navigationCurrent && !row.selected ? 0.5 : 0
@@ -332,7 +332,7 @@ PanelWindow {
                         anchors.fill: parent
                         anchors.leftMargin: 1
                         anchors.rightMargin: 1
-                        radius: Metrics.panelRadius - 2
+                        radius: Metrics.panelRadius
                         color: Theme.transparentColor
                         opacity: row.selected ? 1 : 0
                         border.width: 0.5

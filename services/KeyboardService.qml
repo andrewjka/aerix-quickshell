@@ -11,26 +11,26 @@ QtObject {
     id: service
 
     readonly property var layoutAbbreviations: ({
-        "us": "EN",
-        "ru": "RU",
-        "ua": "UK",
-        "gb": "EN",
-        "de": "DE",
-        "fr": "FR",
-        "es": "ES",
-        "it": "IT",
-        "pt": "PT",
-        "pl": "PL",
-        "nl": "NL",
-        "se": "SV",
-        "no": "NO",
-        "fi": "FI",
-        "dk": "DA",
-        "cz": "CS",
-        "sk": "SK",
-        "tr": "TR",
-        "jp": "JA",
-        "kr": "KO"
+        "us": "en",
+        "ru": "ru",
+        "ua": "uk",
+        "gb": "en",
+        "de": "de",
+        "fr": "fr",
+        "es": "es",
+        "it": "it",
+        "pt": "pt",
+        "pl": "pl",
+        "nl": "nl",
+        "se": "sv",
+        "no": "no",
+        "fi": "fi",
+        "dk": "da",
+        "cz": "cs",
+        "sk": "sk",
+        "tr": "tr",
+        "jp": "ja",
+        "kr": "ko"
     })
 
     property string deviceName: ""

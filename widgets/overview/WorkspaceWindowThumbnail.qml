@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Effects
 import Quickshell.Wayland
 import "../../core"
 
@@ -53,13 +54,26 @@ Rectangle {
     y: (sourceY - monitorGeometry.y) / monitorHeight * (parent?.height ?? 0)
     width: sourceWidth / monitorWidth * (parent?.width ?? 0)
     height: sourceHeight / monitorHeight * (parent?.height ?? 0)
-    radius: 3
+    radius: Metrics.panelRadius
     clip: true
     // Снимок сам задаёт вид окна; белая стеклянная подложка искажала
     // прозрачные окна, особенно в drag-копии.
     color: Theme.transparentColor
     border.width: 0
     border.color: Theme.borderColor
+    Item {
+        id: thumbnailMask
+        visible: false
+        layer.enabled: true
+        anchors.fill: parent
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Metrics.panelRadius
+            color: Theme.shadowMaskColor
+            antialiasing: true
+        }
+    }
 
     // A window created/resized while the overview is open can reject its
     // initial export. Geometry and workspace hooks retry without polling.
@@ -179,10 +193,27 @@ Rectangle {
         // Follow scene-graph updates of the single captured frame.
         // This does not enable streaming in ScreencopyView.
         live: !!thumbnail.capture?.hasContent && !thumbnail.captureFailed
-        visible: thumbnail.hasCachedFrame
+        // MultiEffect ниже — единственный видимый вывод кадра. Сам source
+        // скрыт, иначе прямоугольная версия была бы видна под маской.
+        visible: false
         textureSize: Qt.size(Math.max(1, Math.ceil(width * 2)),
             Math.max(1, Math.ceil(height * 2)))
+    }
 
+    // MultiEffect является отдельным выводом, а не свойством исходного Item.
+    // Явный source гарантирует, что скругляется texture cachedFrame, а не
+    // только его контейнер.
+    MultiEffect {
+        anchors.fill: cachedFrame
+        source: cachedFrame
+        visible: thumbnail.hasCachedFrame
+        maskEnabled: true
+        maskSource: thumbnailMask
+        // Нулевой порог с нулевой растушёвкой не отсекает alpha=0
+        // надёжно. Порог внутри диапазона явно удаляет прозрачные углы,
+        // а spread сохраняет сглаженный край маски.
+        maskThresholdMin: 0.5
+        maskSpreadAtMin: 1.0
     }
 
     Connections {
@@ -247,7 +278,7 @@ Rectangle {
     Rectangle {
         anchors.fill: parent
         color: Theme.transparentColor
-        radius: thumbnail.radius
+        radius: Metrics.panelRadius
         border.width: pointer.containsMouse ? 2 : 0
         border.color: Theme.borderColor
     }

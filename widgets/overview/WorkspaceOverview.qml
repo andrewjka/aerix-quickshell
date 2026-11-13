@@ -390,7 +390,8 @@ PanelWindow {
                             / overview.rows
                         radius: Metrics.panelRadius
                         color: Theme.backgroundColor
-                        border.width: overview.dragTargetIndex === index
+                        border.width: modelData.isActive
+                            || overview.dragTargetIndex === index
                             || (!overview.draggingWindow && !overview.hoveredWindow
                                 && (cardHover.hovered || (overview.keyboardSelection
                                     && overview.selectionIndex === index))) ? 2 : 0
@@ -438,14 +439,15 @@ PanelWindow {
                                 / card.monitorGeometry.width
                             color: card.wallpaper.color !== "transparent"
                                 ? card.wallpaper.color : Theme.desktopBackgroundColor
-                            radius: Math.max(2, Metrics.panelRadius - 2)
-                            // QQuickItem.clip is rectangular. Единственная маска
-                            // на весь холст скругляет обои и все экспорты окон;
-                            // отдельных слоёв на каждое окно больше нет.
+                            radius: Metrics.panelRadius
+                            // Общая маска ограничивает обои и окна границами
+                            // скруглённого холста рабочего стола.
                             layer.enabled: true
                             layer.effect: MultiEffect {
                                 maskEnabled: true
                                 maskSource: canvasMask
+                                maskThresholdMin: 0.5
+                                maskSpreadAtMin: 1.0
                             }
 
                             // Обои — отдельный нижний слой workspace. Он
@@ -493,8 +495,9 @@ PanelWindow {
 
                             Rectangle {
                                 anchors.fill: parent
-                                radius: workspaceCanvas.radius
+                                radius: Metrics.panelRadius
                                 color: Theme.shadowMaskColor
+                                antialiasing: true
                             }
                         }
 
@@ -544,7 +547,7 @@ PanelWindow {
             y: overview.dragPosition.y + 16
             width: Math.max(72, (overview.dragVisual?.width ?? 1) * 0.65)
             height: Math.max(44, (overview.dragVisual?.height ?? 1) * 0.65)
-            radius: Math.max(2, Metrics.panelRadius * 0.65)
+            radius: Metrics.panelRadius
             // Не подкрашивать копию: особенно важно для прозрачных окон.
             color: Theme.transparentColor
             clip: true

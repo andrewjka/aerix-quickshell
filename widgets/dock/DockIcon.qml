@@ -81,7 +81,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             visible: !appImage.visible
-            radius: 16
+            radius: Metrics.panelRadius
             color: Theme.backgroundColor
 
             Text {

@@ -58,7 +58,7 @@ PanelWindow {
     // Тот же protocol-запрос, что у карточек overview и popup раскладки.
     BackgroundEffect.blurRegion: Region {
         item: previewFrame
-        radius: Metrics.previewRadius
+        radius: Metrics.panelRadius
     }
 
     /** Пересчитывает геометрию layer-surface по прежнему якорю Dock. */
@@ -195,7 +195,7 @@ PanelWindow {
         y: preview.topRenderMargin
         width: preview.surfaceWidth
         height: preview.surfaceHeight
-        radius: Metrics.previewRadius
+        radius: Metrics.panelRadius
         color: Theme.backgroundColor
         clip: true
         transformOrigin: Item.Bottom
@@ -232,7 +232,7 @@ PanelWindow {
                     maskSource: Rectangle {
                         width: previewImage.width
                         height: previewImage.height
-                        radius: Metrics.previewRadius
+                        radius: Metrics.panelRadius
                     }
                 }
             }
@@ -281,7 +281,7 @@ PanelWindow {
         y: previewFrame.y
         width: previewFrame.width
         height: previewFrame.height
-        radius: Metrics.previewRadius
+        radius: Metrics.panelRadius
         color: Theme.transparentColor
         border.width: 1
         border.color: Theme.borderColor
