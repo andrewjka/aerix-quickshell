@@ -94,7 +94,7 @@ theme = "themes/dark"
 | `foreground` | 1 | Alpha часов, подписей, иконок и обычного текста. |
 | `accent` | 1 | Alpha текста ошибок раскладки и переноса окна. |
 | `hover` | 0.16 | Alpha двух состояний строки popup: pointer hover и keyboard navigation. |
-| `border` | 0.32 | Alpha всех рамок: постоянных, выбранных и hover-контуров. Исключение — рамка активного workspace в Dock использует тот же цвет с alpha `1`. |
+| `border` | 0.32 | Alpha всех рамок: постоянных, выбранных и hover-контуров. Исключение — рамки активного workspace в Dock и overview используют тот же цвет с alpha `1`. |
 | `shadow` | 0.48 | Alpha теней Dock и Status bar. |
 | `overlay` | 0.08 | Alpha подложки overview и маски обновления preview. |
 | `disabled` | 0.32 | Alpha `foreground` в недоступном состоянии. Сейчас применяется к виджету раскладки, когда переключение невозможно. |

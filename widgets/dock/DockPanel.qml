@@ -10,7 +10,6 @@ PanelWindow {
     id: panel
 
     required property var modelData
-    property bool overviewOpen: false
 
     property string hoveredAddress: ""
     // Открытость принадлежит конкретной panel surface. Shadow получает её
@@ -83,9 +82,13 @@ PanelWindow {
         isOpen = false;
     }
 
-    onOverviewOpenChanged: {
-        if (overviewOpen)
-            closePanel();
+    Connections {
+        target: OverviewService
+
+        function onOpenChanged() {
+            if (OverviewService.open)
+                panel.closePanel();
+        }
     }
 
     /** Восстанавливает hover, если курсор попал на иконку ещё во время выезда. */

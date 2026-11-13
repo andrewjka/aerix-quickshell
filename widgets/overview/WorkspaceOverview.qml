@@ -395,7 +395,11 @@ PanelWindow {
                             || (!overview.draggingWindow && !overview.hoveredWindow
                                 && (cardHover.hovered || (overview.keyboardSelection
                                     && overview.selectionIndex === index))) ? 2 : 0
-                        border.color: Theme.borderColor
+                        // Только активный workspace использует базовый border
+                        // без alpha; hover и drag сохраняют общую прозрачность.
+                        border.color: modelData.isActive
+                            ? Theme.withOpacity("border", 1)
+                            : Theme.borderColor
                         opacity: overview.pendingWorkspaceId >= 0
                             && overview.pendingWorkspaceId !== modelData.workspaceId ? 0.65 : 1
 

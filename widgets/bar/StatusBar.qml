@@ -2,13 +2,13 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import "../../core"
+import "../../services"
 
 // Одно окно на монитор. Данные виджетов поступают из общих singleton-сервисов.
 PanelWindow {
     id: statusBar
 
     required property var modelData
-    property bool overviewOpen: false
 
     screen: modelData
     anchors {
@@ -27,8 +27,12 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aerix:status-bar"
 
-    onOverviewOpenChanged: {
-        if (overviewOpen) {
+    Connections {
+        target: OverviewService
+
+        function onOpenChanged() {
+            if (!OverviewService.open)
+                return;
             keyboardLayout.dismissPopup();
             volume.dismissPopup();
         }
