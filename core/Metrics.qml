@@ -5,7 +5,9 @@ import QtQml
 QtObject {
     // Базовые размеры Dock и его невидимой области активации.
     readonly property int spacing: 10
-    readonly property int panelHeight: 54
+    readonly property int groupHeight: 50
+    // Суммарный вертикальный padding равен общей spacing: по 5 px с каждой стороны.
+    readonly property int panelHeight: groupHeight + spacing
     readonly property int bottomMargin: 2 * spacing
     readonly property int triggerHeight: 8
     readonly property int panelHorizontalMargin: 12
@@ -18,7 +20,6 @@ QtObject {
     readonly property int iconPressOffset: 8
     readonly property int iconTopOverflow: 20
     readonly property int iconBottomOverflow: 10
-    readonly property int groupHeight: 50
     readonly property int activeWorkspaceGap: 24
     readonly property int activeWorkspacePadding: 8
     // Максимальный визуальный масштаб и небольшой запас для растеризации

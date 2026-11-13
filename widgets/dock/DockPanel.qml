@@ -59,7 +59,9 @@ PanelWindow {
     screen: modelData
     anchors.bottom: true
     implicitWidth: Math.ceil(panelSurface.width) + 2 * Metrics.panelHorizontalMargin
-    implicitHeight: 92
+    // Верхний запас сохраняет область для увеличения иконок при hover.
+    implicitHeight: Metrics.panelHeight + Metrics.bottomMargin
+        + Metrics.iconTopOverflow
     color: Theme.transparentColor
     focusable: false
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None

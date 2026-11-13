@@ -35,7 +35,10 @@ PanelWindow {
     readonly property int horizontalRenderMargin: shadowMargin + Math.ceil(
         surfaceWidth * springScaleOverflow / 2)
     readonly property int popupTop: barWindow.height + 2 * Metrics.spacing
-    readonly property int visibleRowCount: 5
+    // Popup растёт только до пяти строк; при меньшем списке не оставляет
+    // пустое место. Одна строка сохраняется для сообщения об отсутствии устройств.
+    readonly property int visibleRowCount: Math.min(5,
+        Math.max(1, entries.length))
     readonly property int listHeight: visibleRowCount * rowHeight
         + Math.max(0, visibleRowCount - 1) * Metrics.popupRowSpacing + 2
     // qmllint disable missing-property
