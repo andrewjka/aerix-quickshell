@@ -2,12 +2,14 @@ pragma ComponentBehavior: Bound
 
 import Quickshell
 import Quickshell.Hyprland
+import QtQml
 // В установленной версии Quickshell GlobalShortcut зарегистрирован в
 // отдельном подмодуле, хотя сам Hyprland импортирует его для runtime.
 import Quickshell.Hyprland._GlobalShortcuts
-import "bar"
-import "dock"
-import "overview"
+import "services"
+import "widgets/bar"
+import "widgets/dock"
+import "widgets/overview"
 
 ShellRoot {
     id: shellRoot
@@ -35,6 +37,16 @@ ShellRoot {
     function openOverviewForScreen(screen) {
         overviewScreen = screen;
         overviewOpen = overviewScreen !== null;
+    }
+
+    // IPC только запрашивает действие; владельцем состояния overview остаётся
+    // корневой shell, как и для горячей клавиши и StatusBar.
+    Connections {
+        target: IpcService
+
+        function onWorkspaceOverviewToggleRequested() {
+            shellRoot.toggleOverview();
+        }
     }
 
     GlobalShortcut {
@@ -69,7 +81,6 @@ ShellRoot {
         model: Quickshell.screens
         StatusBar {
             overviewOpen: shellRoot.overviewOpen
-            onOverviewRequested: screen => shellRoot.openOverviewForScreen(screen)
         }
     }
 

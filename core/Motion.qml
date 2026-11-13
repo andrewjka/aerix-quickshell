@@ -1,4 +1,3 @@
-pragma ComponentBehavior: Bound
 pragma Singleton
 
 import QtQml
@@ -7,9 +6,17 @@ import Quickshell
 import Quickshell.Io
 import "../utils/MotionConfig.js" as Config
 
-// Motion загружает и проверяет единый плоский профиль из motion.conf.
+// Motion загружает и проверяет единый плоский профиль из configs/motion.conf.
 QtObject {
     id: motion
+
+    // Общая профильная анимация для обычных переходов свойств. Специальные spring и
+    // быстрые реакции остаются явными в виджете, где нужен их иной профиль.
+    component ProfileAnimation: NumberAnimation {
+        duration: Motion.durationMs
+        easing.type: Easing.BezierSpline
+        easing.bezierCurve: Motion.bezierCurve
+    }
 
     // Значения сохраняют интерфейс рабочим до первого успешного чтения.
     property var motionConfiguration: ({
@@ -50,13 +57,13 @@ QtObject {
         try {
             motionConfiguration = Config.parse(text);
         } catch (error) {
-            console.warn("motion.conf: " + error.message);
+            console.warn("configs/motion.conf: " + error.message);
         }
     }
 
     property FileView motionConfigFile: FileView {
         id: motionFile
-        path: Quickshell.shellPath("motion.conf")
+        path: Quickshell.shellPath("configs/motion.conf")
         preload: true
         watchChanges: true
         blockWrites: true

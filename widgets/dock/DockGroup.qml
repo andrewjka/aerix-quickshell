@@ -1,7 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import "../core"
+import "../../core"
 
 // Группа рабочего пространства управляет раскладкой иконок и раздвижением
 // при наведении. Фокусировку окон и открытие панели обрабатывает DockPanel.
@@ -104,19 +104,19 @@ Item {
     height: Metrics.groupHeight
 
     Behavior on workspacePadding {
-        StandardAnimation {}
+        Motion.ProfileAnimation {}
     }
     Behavior on leftWorkspaceGap {
-        StandardAnimation {}
+        Motion.ProfileAnimation {}
     }
     Behavior on rightWorkspaceGap {
-        StandardAnimation {}
+        Motion.ProfileAnimation {}
     }
     Behavior on leftHoverExpansion {
-        StandardAnimation { duration: Motion.durationMs }
+        Motion.ProfileAnimation { duration: Motion.durationMs }
     }
     Behavior on rightHoverExpansion {
-        StandardAnimation { duration: Motion.durationMs }
+        Motion.ProfileAnimation { duration: Motion.durationMs }
     }
 
     Repeater {

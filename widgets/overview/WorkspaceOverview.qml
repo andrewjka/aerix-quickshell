@@ -6,8 +6,8 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
-import "../core"
-import "../services"
+import "../../core"
+import "../../services"
 
 // Ленивая overlay-поверхность: живёт только пока открыт overview.
 PanelWindow {

@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell.Wayland
-import "../core"
+import "../../core"
 
 // Геометрия миниатюры принадлежит самому delegate, без размерного Loader.
 Rectangle {

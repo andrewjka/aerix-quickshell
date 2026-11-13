@@ -4,8 +4,8 @@ import QtQuick
 import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Wayland
-import "../core"
-import "../services"
+import "../../core"
+import "../../services"
 
 // Hyprglass обрабатывает blur только на layer-shell surface. Snapshot и его
 // lifecycle остаются прежними, но контейнером служит отдельный PanelWindow.
@@ -173,14 +173,14 @@ PanelWindow {
     ParallelAnimation {
         id: revealAnimation
 
-        StandardAnimation {
+        Motion.ProfileAnimation {
             target: previewFrame
             property: "scale"
             from: 0.12
             to: 1
             duration: Motion.durationMs
         }
-        StandardAnimation {
+        Motion.ProfileAnimation {
             target: previewFrame
             property: "opacity"
             from: 0

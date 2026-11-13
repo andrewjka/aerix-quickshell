@@ -1,5 +1,5 @@
 import QtQuick
-import "../core"
+import "../../core"
 
 // Обводка активного workspace: скольжение между группами, расширение по
 // вертикали и короткое покачивание при попытке выйти за край списка workspace.
@@ -66,7 +66,7 @@ Rectangle {
         id: workspaceTransition
 
         ParallelAnimation {
-            StandardAnimation {
+            Motion.ProfileAnimation {
                 target: indicator
                 property: "verticalExpansion"
                 // Без from анимация продолжает текущую высоту после
@@ -74,7 +74,7 @@ Rectangle {
                 to: 20
                 duration: Motion.durationMs
             }
-            StandardAnimation {
+            Motion.ProfileAnimation {
                 target: indicator
                 property: "slideProgress"
                 from: 0
@@ -82,7 +82,7 @@ Rectangle {
                 duration: Motion.durationMs
             }
         }
-        StandardAnimation {
+        Motion.ProfileAnimation {
             target: indicator
             property: "verticalExpansion"
             to: 0
@@ -91,7 +91,7 @@ Rectangle {
     }
 
     // Синус превращает один прогресс в движение к краю и обратно.
-    StandardAnimation {
+    Motion.ProfileAnimation {
         id: nudgeAnimation
         target: indicator
         property: "nudgeProgress"

@@ -1,4 +1,4 @@
-// Строгий плоский формат motion.conf без overrides и вложенных секций.
+// Строгий плоский формат configs/motion.conf без overrides и вложенных секций.
 var keys = ["durationMs", "quickDurationMs", "springStartScale", "springOvershoot",
             "dockCloseDelayMs", "bezierCurve"];
 

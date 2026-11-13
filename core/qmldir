@@ -2,6 +2,5 @@ singleton Motion 1.0 Motion.qml
 singleton Metrics 1.0 Metrics.qml
 singleton Theme 1.0 Theme.qml
 singleton I18n 1.0 I18n.qml
-StandardAnimation 1.0 StandardAnimation.qml
 PanelShadow 1.0 PanelShadow.qml
 PanelShadowWindow 1.0 PanelShadowWindow.qml

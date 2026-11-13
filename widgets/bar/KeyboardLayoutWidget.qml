@@ -3,8 +3,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Qt5Compat.GraphicalEffects
 import Quickshell
-import "../core"
-import "../services"
+import "../../core"
+import "../../services"
 
 // Вся зона виджета открывает список раскладок.
 Item {
@@ -13,7 +13,7 @@ Item {
     required property var barWindow
 
     property bool popupOpen: false
-    readonly property bool canInteract: KeyboardLayoutService.available
+    readonly property bool canInteract: KeyboardService.available
     implicitWidth: content.width
     implicitHeight: content.height
     width: implicitWidth
@@ -36,7 +36,7 @@ Item {
     function openPopup() {
         // На открытии перечитываем devices: Hyprland не предоставляет
         // отдельного надёжного rawEvent для hotplug клавиатуры.
-        KeyboardLayoutService.refresh();
+        KeyboardService.refresh();
         popupOpen = true;
     }
 
@@ -50,7 +50,7 @@ Item {
             id: layoutLabel
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            text: KeyboardLayoutService.activeLabel
+            text: KeyboardService.activeLabel
             color: widget.canInteract ? Theme.foregroundColor : Theme.disabledForegroundColor
             font.pixelSize: Metrics.statusBarFontSize
             font.weight: Font.Medium
@@ -67,7 +67,7 @@ Item {
 
             Image {
                 anchors.fill: parent
-                source: Qt.resolvedUrl("../media/icons/language.svg")
+                source: Qt.resolvedUrl("../../assets/icons/language.svg")
                 sourceSize.width: Math.ceil(width * widget.barWindow.devicePixelRatio)
                 sourceSize.height: Math.ceil(height * widget.barWindow.devicePixelRatio)
                 fillMode: Image.PreserveAspectFit

@@ -46,7 +46,7 @@ QtObject {
         try {
             selectedThemePath = Config.parseSelection(text);
         } catch (error) {
-            console.warn("theme.conf: " + error.message);
+            console.warn("configs/theme.conf: " + error.message);
         }
     }
     function loadPalette(text) {
@@ -59,7 +59,7 @@ QtObject {
         }
     }
     property FileView selectionFile: FileView {
-        path: Quickshell.shellPath("theme.conf")
+        path: Quickshell.shellPath("configs/theme.conf")
         preload: true
         watchChanges: true
         blockWrites: true

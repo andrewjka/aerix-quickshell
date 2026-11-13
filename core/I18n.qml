@@ -39,7 +39,7 @@ QtObject {
         try {
             selectedLanguagePath = Config.parseSelection(text);
         } catch (error) {
-            console.warn("language.conf: " + error.message);
+            console.warn("configs/language.conf: " + error.message);
         }
     }
 
@@ -74,7 +74,7 @@ QtObject {
     }
 
     property FileView selectionFile: FileView {
-        path: Quickshell.shellPath("language.conf")
+        path: Quickshell.shellPath("configs/language.conf")
         preload: true
         watchChanges: true
         blockWrites: true

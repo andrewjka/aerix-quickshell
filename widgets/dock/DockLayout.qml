@@ -1,6 +1,6 @@
 import QtQml
-import "../core"
-import "../services"
+import "../../core"
+import "../../services"
 
 // Общая геометрия видимой панели и отдельной поверхности тени.
 QtObject {

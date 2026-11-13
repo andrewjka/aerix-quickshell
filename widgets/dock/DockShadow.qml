@@ -1,5 +1,5 @@
 import QtQuick
-import "../core"
+import "../../core"
 
 // Shadow использует фактическую surface Dock и не дублирует её анимацию.
 PanelShadowWindow {

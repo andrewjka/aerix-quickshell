@@ -3,8 +3,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import "../core"
-import "../services"
+import "../../core"
+import "../../services"
 
 PanelWindow {
     id: panel
@@ -181,7 +181,7 @@ PanelWindow {
         opacity: panel.revealOpacity
         transformOrigin: Item.Bottom
         Behavior on width {
-            StandardAnimation {}
+            Motion.ProfileAnimation {}
         }
     }
 

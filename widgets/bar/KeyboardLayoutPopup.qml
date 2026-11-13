@@ -5,8 +5,8 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
-import "../core"
-import "../services"
+import "../../core"
+import "../../services"
 
 // Временный слой меню и отдельная input-прозрачная поверхность общей тени.
 PanelWindow {
@@ -20,7 +20,7 @@ PanelWindow {
     property int navigationIndex: -1
     property bool expanded: false
     property real reveal: expanded ? 1 : 0
-    readonly property var entries: KeyboardLayoutService.layouts
+    readonly property var entries: KeyboardService.layouts
     readonly property int rowHeight: 32
     readonly property int revealTravel: 24
     readonly property real springScaleOverflow: Math.max(0,
@@ -115,10 +115,10 @@ PanelWindow {
         const entry = entries[row];
         if (!entry || !expanded)
             return;
-        if (entry.index === KeyboardLayoutService.activeIndex) {
+        if (entry.index === KeyboardService.activeIndex) {
             dismiss();
-        } else if (KeyboardLayoutService.select(entry.index)) {
-            pendingSelectionToken = KeyboardLayoutService.pendingSelectionToken;
+        } else if (KeyboardService.select(entry.index)) {
+            pendingSelectionToken = KeyboardService.pendingSelectionToken;
         }
     }
 
@@ -136,7 +136,7 @@ PanelWindow {
             return;
         }
         navigationIndex = Math.max(0, Math.min(entries.length - 1,
-            KeyboardLayoutService.activeIndex));
+            KeyboardService.activeIndex));
         positionNavigation();
     }
 
@@ -146,7 +146,7 @@ PanelWindow {
             return;
         }
         navigationIndex = Math.max(0, Math.min(entries.length - 1,
-            navigationIndex < 0 ? KeyboardLayoutService.activeIndex : navigationIndex));
+            navigationIndex < 0 ? KeyboardService.activeIndex : navigationIndex));
         positionNavigation();
     }
 
@@ -175,7 +175,7 @@ PanelWindow {
     }
 
     Connections {
-        target: KeyboardLayoutService
+        target: KeyboardService
         function onLayoutSelectionResolved(token, confirmed) {
             if (popup.pendingSelectionToken !== token)
                 return;
@@ -274,7 +274,7 @@ PanelWindow {
                     required property var modelData
                     required property int index
                     readonly property bool selected:
-                        modelData.index === KeyboardLayoutService.activeIndex
+                        modelData.index === KeyboardService.activeIndex
                     readonly property bool navigationCurrent: index === popup.navigationIndex
                     width: layoutList.width
                     height: popup.rowHeight
@@ -341,7 +341,7 @@ PanelWindow {
                         antialiasing: true
 
                         Behavior on opacity {
-                            StandardAnimation {
+                            Motion.ProfileAnimation {
                                 duration: Motion.quickDurationMs
                             }
                         }
@@ -372,7 +372,7 @@ PanelWindow {
                     MouseArea {
                         id: rowMouse
                         anchors.fill: parent
-                        enabled: popup.expanded && !KeyboardLayoutService.selectionBlocked
+                        enabled: popup.expanded && !KeyboardService.selectionBlocked
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
@@ -388,8 +388,8 @@ PanelWindow {
                 x: Metrics.spacing
                 y: layoutList.y + layoutList.height + Metrics.spacing
                 width: layoutList.width
-                visible: KeyboardLayoutService.errorKey.length > 0
-                text: I18n.tr(KeyboardLayoutService.errorKey)
+                visible: KeyboardService.errorKey.length > 0
+                text: I18n.tr(KeyboardService.errorKey)
                 color: Theme.accentColor
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap

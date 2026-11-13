@@ -6,6 +6,7 @@ import Quickshell.Io
 import "../utils/KeyboardLayoutParser.js" as KeyboardLayoutParser
 
 // Единый источник подтверждённого Hyprland состояния раскладки для всех Bar.
+// Имя сервиса описывает устройство, а не конкретный формат списка раскладок.
 QtObject {
     id: service
 

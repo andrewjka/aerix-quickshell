@@ -1,7 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import "../core"
+import "../../core"
 
 // Одно окно на монитор. Данные виджетов поступают из общих singleton-сервисов.
 PanelWindow {
@@ -9,7 +9,6 @@ PanelWindow {
 
     required property var modelData
     property bool overviewOpen: false
-    signal overviewRequested(var screen)
 
     screen: modelData
     anchors {
@@ -69,17 +68,11 @@ PanelWindow {
             width: 96
             height: parent.height
             visible: parent.width >= 2 * (Metrics.spacing + width) + clock.implicitWidth
-            source: Qt.resolvedUrl("../media/icons/Aerix-logo.svg")
+            source: Qt.resolvedUrl("../../assets/icons/Aerix-logo.svg")
             sourceSize.width: Math.ceil(width * statusBar.devicePixelRatio)
             sourceSize.height: Math.ceil(height * statusBar.devicePixelRatio)
             fillMode: Image.PreserveAspectFit
             smooth: true
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: statusBar.overviewRequested(statusBar.modelData)
-            }
         }
 
         KeyboardLayoutWidget {

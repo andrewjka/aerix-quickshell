@@ -1,8 +1,8 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import "../core"
-import "../services"
+import "../../core"
+import "../../services"
 
 Item {
     id: icon
@@ -32,7 +32,7 @@ Item {
     x: baseX + hoverOffset
 
     Behavior on hoverOffset {
-        StandardAnimation {
+        Motion.ProfileAnimation {
             duration: Motion.durationMs
         }
     }
@@ -49,11 +49,11 @@ Item {
         transformOrigin: Item.Center
 
         Behavior on scale {
-            StandardAnimation {}
+            Motion.ProfileAnimation {}
         }
 
         Behavior on y {
-            StandardAnimation {
+            Motion.ProfileAnimation {
                 duration: Motion.durationMs
             }
         }

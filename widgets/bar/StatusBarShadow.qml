@@ -1,5 +1,5 @@
 import QtQuick
-import "../core"
+import "../../core"
 
 // Геометрия Bar задаётся здесь, а общая layer-surface — в PanelShadowWindow.
 PanelShadowWindow {

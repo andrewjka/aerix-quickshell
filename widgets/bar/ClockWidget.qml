@@ -1,6 +1,6 @@
 import QtQuick
-import "../core"
-import "../services"
+import "../../core"
+import "../../services"
 
 // Виджет только отображает время: источник и частота обновления общие.
 Text {
