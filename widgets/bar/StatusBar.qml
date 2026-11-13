@@ -28,8 +28,10 @@ PanelWindow {
     WlrLayershell.namespace: "aerix:status-bar"
 
     onOverviewOpenChanged: {
-        if (overviewOpen)
+        if (overviewOpen) {
             keyboardLayout.dismissPopup();
+            volume.dismissPopup();
+        }
     }
 
     mask: Region {
@@ -54,9 +56,12 @@ PanelWindow {
         // reverse-анимацию; click trigger забирает собственный MouseArea.
         MouseArea {
             anchors.fill: parent
-            enabled: keyboardLayout.popupOpen
+            enabled: keyboardLayout.popupOpen || volume.popupOpen
             acceptedButtons: Qt.AllButtons
-            onClicked: keyboardLayout.dismissPopup()
+            onClicked: {
+                keyboardLayout.dismissPopup();
+                volume.dismissPopup();
+            }
         }
 
         // Логотип скрывается раньше, чем может пересечься с часами.
@@ -78,10 +83,21 @@ PanelWindow {
         KeyboardLayoutWidget {
             id: keyboardLayout
             barWindow: statusBar
+            anchors.right: volume.left
+            anchors.rightMargin: Metrics.spacing
+            anchors.verticalCenter: parent.verticalCenter
+            visible: surface.rightWidgetsFit
+            onPopupOpened: volume.dismissPopup()
+        }
+
+        VolumeWidget {
+            id: volume
+            barWindow: statusBar
             anchors.right: parent.right
             anchors.rightMargin: Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
-            visible: parent.width >= 2 * (Metrics.spacing + implicitWidth) + clock.implicitWidth
+            visible: surface.rightWidgetsFit
+            onPopupOpened: keyboardLayout.dismissPopup()
         }
 
         // Независимое центрирование оставляет часы в центре экрана, когда
@@ -90,5 +106,9 @@ PanelWindow {
             id: clock
             anchors.centerIn: parent
         }
+
+        readonly property bool rightWidgetsFit: parent.width >= 2 * (
+            Metrics.spacing + keyboardLayout.implicitWidth + volume.implicitWidth)
+            + clock.implicitWidth
     }
 }

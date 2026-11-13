@@ -2,6 +2,7 @@ singleton IconService 1.0 IconService.qml
 singleton DockService 1.0 DockService.qml
 singleton ClockService 1.0 ClockService.qml
 singleton KeyboardService 1.0 KeyboardService.qml
+singleton AudioService 1.0 AudioService.qml
 singleton WorkspaceService 1.0 WorkspaceService.qml
 singleton IpcService 1.0 IpcService.qml
 WallpaperSource 1.0 WallpaperSource.qml

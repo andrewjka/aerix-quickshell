@@ -19,6 +19,8 @@ Item {
     width: implicitWidth
     height: implicitHeight
 
+    signal popupOpened()
+
     function closePopup() {
         popupOpen = false;
     }
@@ -37,6 +39,7 @@ Item {
         // На открытии перечитываем devices: Hyprland не предоставляет
         // отдельного надёжного rawEvent для hotplug клавиатуры.
         KeyboardService.refresh();
+        popupOpened();
         popupOpen = true;
     }
 
