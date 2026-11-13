@@ -224,7 +224,7 @@ Rectangle {
         anchors.centerIn: parent
         visible: !thumbnail.hasCachedFrame
         width: parent.width - 6
-        text: String(thumbnail.toplevel?.title ?? "Окно")
+        text: String(thumbnail.toplevel?.title ?? I18n.tr("overview.windowFallback"))
         color: Theme.foregroundColor
         font.pixelSize: 10
         elide: Text.ElideRight

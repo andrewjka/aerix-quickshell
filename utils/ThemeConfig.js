@@ -14,16 +14,16 @@ function parse(text) {
         if (!line || /^[#;]/.test(line))
             return;
         if (line === "[opacity]") {
-            if (seenOpacity) throw new Error("Повторная секция opacity");
+            if (seenOpacity) throw new Error("Duplicate opacity section");
             seenOpacity = true;
             section = result.opacity;
             return;
         }
         var match = /^([A-Za-z][A-Za-z0-9]*)\s*=\s*("(?:[^"\\])*"|[0-9]+(?:\.[0-9]+)?)\s*(?:[#;].*)?$/.exec(line);
-        if (!match) throw new Error("Неверный синтаксис, строка " + (index + 1));
+        if (!match) throw new Error("Invalid syntax on line " + (index + 1));
         var key = match[1];
         if (Object.prototype.hasOwnProperty.call(section, key))
-            throw new Error("Повторный ключ: " + key);
+            throw new Error("Duplicate key: " + key);
         section[key] = match[2][0] === '"' ? match[2].slice(1, -1) : Number(match[2]);
     });
     return result;
@@ -32,7 +32,7 @@ function parse(text) {
 function requireKeys(values, keys) {
     if (Object.keys(values).length !== keys.length
         || keys.some(function(key) { return !Object.prototype.hasOwnProperty.call(values, key); }))
-        throw new Error("Ожидаемые поля: " + keys.join(", "));
+        throw new Error("Expected fields: " + keys.join(", "));
 }
 
 function parseSelection(text) {
@@ -41,7 +41,7 @@ function parseSelection(text) {
     requireKeys(config.opacity, []);
     var path = config.values.theme;
     if (typeof path !== "string" || !path.trim())
-        throw new Error("theme должен содержать путь к файлу");
+        throw new Error("theme must contain a file path");
     return /\.conf$/.test(path) ? path : path + ".conf";
 }
 
@@ -51,12 +51,12 @@ function parsePalette(text) {
     requireKeys(config.opacity, opacityKeys);
     colorKeys.forEach(function(key) {
         if (typeof config.values[key] !== "string" || !/^#[0-9a-fA-F]{6}$/.test(config.values[key]))
-            throw new Error(key + ": ожидается цвет #RRGGBB");
+            throw new Error(key + ": expected a #RRGGBB color");
     });
     opacityKeys.forEach(function(key) {
         var value = config.opacity[key];
         if (typeof value !== "number" || !isFinite(value) || value < 0 || value > 1)
-            throw new Error(key + ": ожидается число от 0 до 1");
+            throw new Error(key + ": expected a number from 0 to 1");
     });
     return config;
 }

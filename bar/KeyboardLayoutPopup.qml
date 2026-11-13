@@ -388,8 +388,8 @@ PanelWindow {
                 x: Metrics.spacing
                 y: layoutList.y + layoutList.height + Metrics.spacing
                 width: layoutList.width
-                visible: KeyboardLayoutService.error.length > 0
-                text: KeyboardLayoutService.error
+                visible: KeyboardLayoutService.errorKey.length > 0
+                text: I18n.tr(KeyboardLayoutService.errorKey)
                 color: Theme.accentColor
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap

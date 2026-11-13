@@ -268,7 +268,7 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 text: String(preview.toplevel?.title
                              ?? preview.toplevel?.lastIpcObject?.title
-                             ?? "Preview")
+                             ?? I18n.tr("dock.previewFallbackTitle"))
                 color: Theme.foregroundColor
                 font.pixelSize: 12
                 elide: Text.ElideRight

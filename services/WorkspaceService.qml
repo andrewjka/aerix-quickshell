@@ -237,7 +237,7 @@ QtObject {
 
     property var moveQueue: []
     property var currentMove: null
-    property string operationError: ""
+    property string operationErrorKey: ""
     readonly property bool busy: currentMove !== null || moveQueue.length > 0
 
     // Предохранитель: если Hyprland отклонил dispatch (ошибка Lua, закреплённое
@@ -247,7 +247,7 @@ QtObject {
     property Timer stepTimer: Timer {
         interval: service.moveStepTimeoutMs
         repeat: false
-        onTriggered: service.failMove("Перенос не подтверждён Hyprland: окно не сменило workspace.")
+        onTriggered: service.failMove("overview.moveUnconfirmed")
     }
 
     function requestToplevelRefresh() {
@@ -255,9 +255,9 @@ QtObject {
         Hyprland.refreshToplevels();
     }
 
-    function failMove(message) {
+    function failMove(errorKey) {
         stepTimer.stop();
-        operationError = message;
+        operationErrorKey = errorKey;
         moveQueue = [];
         currentMove = null;
         startSettle(true);
@@ -273,7 +273,7 @@ QtObject {
         const step = moveQueue[0];
         const window = windowForAddress(step.address);
         if (!window || window.workspace?.id !== step.from) {
-            failMove("Перенос остановлен: окно закрыто или уже сменило workspace.");
+            failMove("overview.moveInterrupted");
             return;
         }
         moveQueue = moveQueue.slice(1);
@@ -293,7 +293,7 @@ QtObject {
             return;
         const window = windowForAddress(currentMove.address);
         if (!window) {
-            failMove("Перенос остановлен: окно закрыто.");
+            failMove("overview.moveWindowClosed");
         } else if (window.workspace?.id === currentMove.to) {
             advanceMove();
         }
@@ -302,7 +302,7 @@ QtObject {
     function startMoves(steps) {
         if (busy || !steps.length)
             return false;
-        operationError = "";
+        operationErrorKey = "";
         moveSettling = true;
         moveQueue = steps;
         advanceMove();

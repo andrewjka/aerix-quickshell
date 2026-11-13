@@ -17,44 +17,44 @@ function parseDevices(json) {
     try {
         devices = JSON.parse(json);
     } catch (parseError) {
-        return { ok: false, error: "Hyprland вернул некорректные данные устройств" };
+        return { ok: false, errorKey: "keyboard.invalidDeviceData" };
     }
 
     if (!isObject(devices))
-        return { ok: false, error: "Hyprland не вернул объект устройств" };
+        return { ok: false, errorKey: "keyboard.invalidDevicesObject" };
 
     if (!Array.isArray(devices.keyboards))
-        return { ok: false, error: "Hyprland не вернул список клавиатур" };
+        return { ok: false, errorKey: "keyboard.missingKeyboards" };
 
     const keyboard = devices.keyboards.find(item => isObject(item) && item.main === true)
         ?? devices.keyboards.find(item => isObject(item));
     if (!keyboard)
-        return { ok: false, error: "Hyprland не вернул клавиатуру" };
+        return { ok: false, errorKey: "keyboard.missingKeyboard" };
 
     if (typeof keyboard.name !== "string" || keyboard.name.trim().length === 0)
-        return { ok: false, error: "Hyprland не вернул имя клавиатуры" };
+        return { ok: false, errorKey: "keyboard.missingKeyboardName" };
 
     if (typeof keyboard.layout !== "string")
-        return { ok: false, error: "Hyprland не вернул список раскладок" };
+        return { ok: false, errorKey: "keyboard.missingLayouts" };
 
     const codes = keyboard.layout.split(",").map(code => code.trim());
     if (codes.length === 0 || codes.some(code => code.length === 0))
-        return { ok: false, error: "Hyprland вернул некорректный список раскладок" };
+        return { ok: false, errorKey: "keyboard.invalidLayouts" };
 
     if (typeof keyboard.variant !== "string")
-        return { ok: false, error: "Hyprland не вернул список вариантов раскладки" };
+        return { ok: false, errorKey: "keyboard.missingVariants" };
 
     const variants = keyboard.variant.split(",").map(variant => variant.trim());
     // Пустые хвостовые варианты не несут данных, но встречаются в XKB.
     while (variants.length > codes.length && variants[variants.length - 1].length === 0)
         variants.pop();
     if (variants.length > codes.length)
-        return { ok: false, error: "Hyprland вернул лишние варианты раскладки" };
+        return { ok: false, errorKey: "keyboard.extraVariants" };
 
     const index = keyboard.active_layout_index;
     if (typeof index !== "number" || !Number.isInteger(index)
             || index < 0 || index >= codes.length) {
-        return { ok: false, error: "Hyprland вернул некорректный активный индекс раскладки" };
+        return { ok: false, errorKey: "keyboard.invalidActiveIndex" };
     }
 
     return {

@@ -474,7 +474,7 @@ PanelWindow {
                             Text {
                                 anchors.centerIn: parent
                                 visible: card.modelData.windows.length === 0
-                                text: "Пусто"
+                                text: I18n.tr("overview.empty")
                                 color: Theme.foregroundColor
                                 opacity: 0.72
                                 font.pixelSize: 14
@@ -517,7 +517,7 @@ PanelWindow {
                             anchors.right: parent.right
                             anchors.rightMargin: Metrics.spacing
                             text: card.modelData.monitorName.length > 0
-                                ? card.modelData.monitorName : "Не создан"
+                                ? card.modelData.monitorName : I18n.tr("overview.notCreated")
                             color: Theme.foregroundColor
                             opacity: 0.72
                             font.pixelSize: 12
@@ -564,8 +564,9 @@ PanelWindow {
             anchors.bottom: parent.bottom
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottomMargin: Metrics.spacing * 3
-            text: WorkspaceService.busy ? "Перенос…" : WorkspaceService.operationError
-            color: WorkspaceService.operationError ? Theme.accentColor : Theme.foregroundColor
+            text: WorkspaceService.busy ? I18n.tr("overview.moving")
+                                        : I18n.tr(WorkspaceService.operationErrorKey)
+            color: WorkspaceService.operationErrorKey ? Theme.accentColor : Theme.foregroundColor
         }
     }
 }

@@ -8,7 +8,7 @@ function isFiniteNumber(value) {
 
 function parseNumber(value, key) {
     if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(value))
-        throw new Error(key + ": ожидается неотрицательное число");
+        throw new Error(key + ": expected a non-negative number");
     return Number(value);
 }
 
@@ -17,7 +17,7 @@ function parseCurve(value) {
         return parseNumber(point.trim(), "bezierCurve");
     });
     if (points.length !== 6)
-        throw new Error("bezierCurve: ожидается шесть чисел");
+        throw new Error("bezierCurve: expected six numbers");
     return points;
 }
 
@@ -29,27 +29,27 @@ function parse(text) {
             return;
         var match = /^([A-Za-z][A-Za-z0-9]*)\s*=\s*([^#;\s].*?)\s*(?:[#;].*)?$/.exec(line);
         if (!match)
-            throw new Error("Неверный синтаксис, строка " + (index + 1));
+            throw new Error("Invalid syntax on line " + (index + 1));
         var key = match[1];
         if (keys.indexOf(key) < 0)
-            throw new Error("Неизвестный ключ: " + key);
+            throw new Error("Unknown key: " + key);
         if (Object.prototype.hasOwnProperty.call(values, key))
-            throw new Error("Повторный ключ: " + key);
+            throw new Error("Duplicate key: " + key);
         values[key] = key === "bezierCurve"
             ? parseCurve(match[2]) : parseNumber(match[2], key);
     });
 
     if (Object.keys(values).length !== keys.length
         || keys.some(function(key) { return !Object.prototype.hasOwnProperty.call(values, key); }))
-        throw new Error("Ожидаемые поля: " + keys.join(", "));
+        throw new Error("Expected fields: " + keys.join(", "));
 
     if (!Number.isInteger(values.durationMs)
         || !Number.isInteger(values.quickDurationMs)
         || !Number.isInteger(values.dockCloseDelayMs))
-        throw new Error("Длительности должны быть целыми миллисекундами");
+        throw new Error("Durations must be whole milliseconds");
     if (values.springStartScale > 1 || values.springOvershoot > 1)
-        throw new Error("Параметры spring должны быть от 0 до 1");
+        throw new Error("Spring parameters must be between 0 and 1");
     if (!values.bezierCurve.every(isFiniteNumber))
-        throw new Error("bezierCurve содержит неверное число");
+        throw new Error("bezierCurve contains an invalid number");
     return values;
 }

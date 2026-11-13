@@ -40,7 +40,6 @@ ShellRoot {
     GlobalShortcut {
         appid: "aerix"
         name: "workspace-overview"
-        description: "Open workspace overview"
         onPressed: {
             if (shellRoot.overviewShortcutHeld)
                 return;

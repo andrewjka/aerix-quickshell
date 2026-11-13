@@ -199,7 +199,7 @@ PanelWindow {
         Text {
             anchors.centerIn: parent
             visible: panel.groups.length === 0
-            text: "Aerix"
+            text: I18n.tr("dock.emptyLabel")
             color: Theme.foregroundColor
             font.pixelSize: 16
             font.weight: Font.Medium

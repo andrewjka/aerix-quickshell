@@ -36,7 +36,7 @@ QtObject {
     property string deviceId: ""
     property var layouts: []
     property int activeIndex: -1
-    property string error: ""
+    property string errorKey: ""
     // Process.running меняется асинхронно; этот флаг закрывает окно между
     // постановкой query на запуск и фактическим стартом дочернего процесса.
     property bool queryActive: false
@@ -117,7 +117,7 @@ QtObject {
     function updateDevices(json) {
         const result = parseDevices(json);
         if (!result.ok) {
-            error = result.error;
+            errorKey = result.errorKey;
             return false;
         }
 
@@ -130,7 +130,7 @@ QtObject {
         // но само по себе не должно пересоздавать неизменную модель.
         deviceName = snapshot.deviceName;
         activeIndex = snapshot.activeIndex;
-        error = "";
+        errorKey = "";
         return true;
     }
 
@@ -164,7 +164,7 @@ QtObject {
             && activeIndex === intent.index;
         pendingSelection = null;
         if (!confirmed && snapshotAccepted)
-            error = "Раскладка не подтвердилась";
+            errorKey = "keyboard.layoutUnconfirmed";
         layoutSelectionResolved(intent.token, confirmed);
     }
 
@@ -177,7 +177,7 @@ QtObject {
         if (index === activeIndex)
             return true;
 
-        error = "";
+        errorKey = "";
         pendingSelectionToken += 1;
         pendingSelection = {
             token: pendingSelectionToken,
@@ -214,9 +214,8 @@ QtObject {
             if (exitCode === 0)
                 snapshotAccepted = service.updateDevices(devicesOutput.text);
             else
-                service.error = service.available
-                    ? "Не удалось обновить состояние клавиатуры"
-                    : "Не удалось получить состояние клавиатуры";
+                service.errorKey = service.available
+                    ? "keyboard.refreshFailed" : "keyboard.queryFailed";
 
             service.resolvePendingSelection(snapshotAccepted);
 
@@ -246,7 +245,7 @@ QtObject {
             } else if (exitCode !== 0 && service.pendingSelection !== null) {
                 const token = service.pendingSelection.token;
                 service.pendingSelection = null;
-                service.error = "Не удалось переключить раскладку";
+                service.errorKey = "keyboard.switchFailed";
                 service.layoutSelectionResolved(token, false);
             }
         }
