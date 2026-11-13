@@ -25,14 +25,6 @@ PanelWindow {
     property int dragSourceIndex: -1
     property Item dragVisual: null
     property Item hoveredWindow: null
-    // workspaceId -> normalized address of the one moved window whose new
-    // exports must arrive before the target canvas is revealed again.
-    property var pendingPreviewRefreshes: ({})
-    property var previewRefreshGenerations: ({})
-    // Each active target must survive one presented render frame. Without this
-    // frame hook, a hasContent signal in the same IPC batch can set and clear
-    // opacity before Qt ever paints the dimmer.
-    property var previewDimmerFrames: ({})
     // Ссылки нужны BackgroundEffect: region обновляется сразу после создания
     // или уничтожения delegate, без геометрического bounding-box всей сетки.
     property var cardItems: []
@@ -50,41 +42,18 @@ PanelWindow {
     readonly property real cardFooterHeight: 40
     // Не совпадает с id workspace: именованные и special имеют отрицательные id.
     readonly property int noWorkspaceId: -1000000
-    readonly property bool debugLogging: false
 
     signal dismissed()
 
-    function debugLog(message) {
-        if (debugLogging)
-            console.info(message);
-    }
-
     WallpaperSource { id: wallpapers }
 
-    // Предохранители: ни затемнение карточки, ни ожидание фокуса не должны
-    // зависать, если ожидаемое событие не пришло (окно закрыто, dispatch
-    // отклонён, экспорт кадра недоступен).
-    Timer {
-        id: previewWatchdog
-        interval: 4000
-        repeat: false
-        onTriggered: overview.cancelAllFreshPreviews()
-    }
-
+    // Сбрасывает ожидание подтверждения переключения, если compositor не
+    // прислал focusedWorkspaceChanged (например, отклонил dispatch).
     Timer {
         id: workspaceWatchdog
         interval: 1500
         repeat: false
         onTriggered: overview.pendingWorkspaceId = -1
-    }
-
-    // Геометрия окон стабилизировалась: теперь экспорт кадров имеет смысл.
-    Connections {
-        target: WorkspaceService
-
-        function onSettled() {
-            overview.bumpPendingGenerations();
-        }
     }
 
     // The model can retain one toplevel object while changing its properties.
@@ -105,117 +74,11 @@ PanelWindow {
         }
     }
 
+    // Сохраняет ссылку на delegate карточки для точного blur-region.
     function setCardItem(index, item) {
         const next = cardItems.slice();
         next[index] = item;
         cardItems = next;
-    }
-
-    function pendingPreviewAddresses(workspaceId) {
-        return pendingPreviewRefreshes[String(workspaceId)] ?? [];
-    }
-
-    function previewRefreshActive(workspaceId) {
-        return String(workspaceId) in pendingPreviewRefreshes;
-    }
-
-    function previewDimmerPresented(workspaceId) {
-        return previewDimmerFrames[String(workspaceId)] === true;
-    }
-
-    function previewRefreshGeneration(workspaceId) {
-        return Number(previewRefreshGenerations[String(workspaceId)] ?? 0);
-    }
-
-    // Нормализованные адреса окон workspace (без excludeAddress).
-    function windowAddresses(workspaceId, excludeAddress) {
-        const slot = slots.find(item => item.workspaceId === workspaceId);
-        const result = [];
-        for (const window of slot?.windows ?? []) {
-            const normalized = WorkspaceService.normalizedAddress(window.address);
-            if (normalized && normalized !== excludeAddress && result.indexOf(normalized) < 0)
-                result.push(normalized);
-        }
-        return result;
-    }
-
-    // Карточка затемняется, пока не придут свежие кадры всех перечисленных
-    // окон. Поколение превью НЕ увеличивается здесь: экспорт сейчас поймал бы
-    // окно посреди анимации. Это делает bumpPendingGenerations() по settled.
-    function beginFreshPreview(workspaceId, addresses) {
-        if (!addresses.length)
-            return;
-        const key = String(workspaceId);
-        const nextPending = Object.assign({}, pendingPreviewRefreshes);
-        nextPending[key] = addresses.slice();
-        pendingPreviewRefreshes = nextPending;
-        const nextFrames = Object.assign({}, previewDimmerFrames);
-        nextFrames[key] = false;
-        previewDimmerFrames = nextFrames;
-        previewWatchdog.restart();
-        debugLog("Overview preview refresh started: " + workspaceId + " "
-            + addresses.join(", "));
-    }
-
-    function bumpPendingGenerations() {
-        const keys = Object.keys(pendingPreviewRefreshes);
-        if (!keys.length)
-            return;
-        const next = Object.assign({}, previewRefreshGenerations);
-        for (const key of keys)
-            next[key] = Number(next[key] ?? 0) + 1;
-        previewRefreshGenerations = next;
-    }
-
-    function cancelAllFreshPreviews() {
-        for (const key of Object.keys(pendingPreviewRefreshes))
-            cancelFreshPreview(Number(key));
-    }
-
-    function finishFreshPreview(workspaceId, address) {
-        const key = String(workspaceId);
-        const normalized = WorkspaceService.normalizedAddress(address);
-        const current = pendingPreviewRefreshes[key] ?? [];
-        if (!normalized || current.indexOf(normalized) < 0)
-            return;
-        const remaining = current.filter(item => item !== normalized);
-        const nextPending = Object.assign({}, pendingPreviewRefreshes);
-        if (remaining.length)
-            nextPending[key] = remaining;
-        else if (previewDimmerPresented(workspaceId))
-            delete nextPending[key];
-        else
-            nextPending[key] = [];
-        pendingPreviewRefreshes = nextPending;
-        debugLog("Overview preview refresh event: " + workspaceId + " "
-            + normalized + " remaining " + remaining.length);
-    }
-
-    function markPreviewDimmerPresented(workspaceId) {
-        const key = String(workspaceId);
-        if (!(key in pendingPreviewRefreshes) || previewDimmerPresented(workspaceId))
-            return;
-        const nextFrames = Object.assign({}, previewDimmerFrames);
-        nextFrames[key] = true;
-        previewDimmerFrames = nextFrames;
-        if (pendingPreviewAddresses(workspaceId).length === 0) {
-            const nextPending = Object.assign({}, pendingPreviewRefreshes);
-            delete nextPending[key];
-            pendingPreviewRefreshes = nextPending;
-        }
-        debugLog("Overview preview dimmer presented: " + workspaceId);
-    }
-
-    function cancelFreshPreview(workspaceId) {
-        const key = String(workspaceId);
-        if (!(key in pendingPreviewRefreshes))
-            return;
-        const next = Object.assign({}, pendingPreviewRefreshes);
-        delete next[key];
-        pendingPreviewRefreshes = next;
-        const nextFrames = Object.assign({}, previewDimmerFrames);
-        delete nextFrames[key];
-        previewDimmerFrames = nextFrames;
     }
 
     // Capture ownership follows the toplevel, not a workspace's JS array.
@@ -234,8 +97,6 @@ PanelWindow {
             monitor: card?.modelData.monitor ?? null
             monitorGeometry: card?.monitorGeometry ?? { x: 0, y: 0, width: 1, height: 1 }
             workspaceId: modelData.workspace?.id ?? overview.noWorkspaceId
-            previewRefreshGeneration: overview.previewRefreshGeneration(workspaceId)
-            suspendRebuild: WorkspaceService.moveSettling
             enabled: !WorkspaceService.busy
             // Floating-окна Hyprland рисует поверх тайловых.
             z: (modelData.lastIpcObject?.floating ? 5000 : 0)
@@ -253,13 +114,6 @@ PanelWindow {
                 overview.updateWindowDropTarget(source, pointerX, pointerY)
             onDragReleased: (source, pointerX, pointerY) =>
                 overview.finishWindowDrag(source, pointerX, pointerY)
-            onFreshFrameReady: (address, workspaceId) =>
-                overview.finishFreshPreview(workspaceId, address)
-            // A second stopped event is terminal for this export context.
-            // Treat it as completed only after the retry in the thumbnail so
-            // one failed window cannot leave the whole workspace dim forever.
-            onFreshFrameUnavailable: (address, workspaceId) =>
-                overview.finishFreshPreview(workspaceId, address)
         }
     }
 
@@ -286,23 +140,27 @@ PanelWindow {
         Region { item: overview.cardItems[9] ?? null; radius: Metrics.panelRadius }
     }
 
+    // Закрывает overview и отменяет локальное ожидание смены workspace.
     function close() {
         pendingWorkspaceId = -1;
         dismissed();
     }
 
+    // Устанавливает индекс карточки, если он попадает в текущую сетку.
     function selectIndex(index) {
         if (index < 0 || index >= slots.length)
             return;
         selectionIndex = index;
     }
 
+    // Смещает keyboard-фокус по сетке, не выходя за её границы.
     function moveSelection(delta) {
         keyboardSelection = true;
         selectIndex(Math.max(0, Math.min(slots.length - 1,
             selectionIndex + delta)));
     }
 
+    // Активирует workspace выбранной карточки и ждёт compositor-подтверждение.
     function requestWorkspace(index) {
         const slot = slots[index];
         if (!slot || pendingWorkspaceId >= 0 || WorkspaceService.busy)
@@ -318,6 +176,7 @@ PanelWindow {
         }
     }
 
+    // Преобразует цифровую клавишу в подпись карточки (0 соответствует 10).
     function selectLabel(label) {
         const normalizedLabel = label === "0" ? "10" : label;
         const index = slots.findIndex(slot => slot.label === normalizedLabel);
@@ -325,6 +184,7 @@ PanelWindow {
             requestWorkspace(index);
     }
 
+    // Начинает перенос окна и запоминает источник для drag-копии.
     function beginWindowDrag(toplevel, workspaceId, visual) {
         if (WorkspaceService.busy || !toplevel)
             return;
@@ -337,6 +197,7 @@ PanelWindow {
         dragPosition = Qt.point(-1000, -1000);
     }
 
+    // Сбрасывает всё временное состояние переноса окна или workspace.
     function endWindowDrag() {
         draggingWindow = false;
         draggedToplevel = null;
@@ -347,6 +208,7 @@ PanelWindow {
         dragVisual = null;
     }
 
+    // Начинает перенос workspace; drag-копия содержит только его canvas.
     function beginWorkspaceDrag(index) {
         if (WorkspaceService.busy || index < 0 || index >= slots.length)
             return;
@@ -361,40 +223,26 @@ PanelWindow {
         dragPosition = Qt.point(-1000, -1000);
     }
 
+    // Меняет содержимое двух карточек местами через WorkspaceService.
     function swapWorkspaces(targetIndex) {
         if (dragKind !== "workspace" || dragSourceIndex < 0
             || targetIndex < 0 || targetIndex === dragSourceIndex)
             return;
         const source = slots[dragSourceIndex];
         const target = slots[targetIndex];
-        // Содержимое меняется местами: превью каждой карточки ждёт окна другой.
-        beginFreshPreview(source.workspaceId, windowAddresses(target.workspaceId, ""));
-        beginFreshPreview(target.workspaceId, windowAddresses(source.workspaceId, ""));
-        if (!WorkspaceService.swapWorkspaces(source, target)) {
-            cancelFreshPreview(source.workspaceId);
-            cancelFreshPreview(target.workspaceId);
-        }
+        WorkspaceService.swapWorkspaces(source, target);
     }
 
+    // Переносит окно в workspace целевой карточки, если он отличается от текущего.
     function moveWindow(toplevel, targetIndex) {
         const target = slots[targetIndex];
         if (!toplevel || !target || WorkspaceService.busy
             || toplevel.workspace?.id === target.workspaceId)
             return;
-        const moved = WorkspaceService.normalizedAddress(toplevel.address);
-        const sourceId = toplevel.workspace?.id ?? -1;
-        // Раскладка меняется и в целевом, и в исходном workspace.
-        const targetAddresses = windowAddresses(target.workspaceId, moved);
-        if (moved)
-            targetAddresses.push(moved);
-        beginFreshPreview(target.workspaceId, targetAddresses);
-        beginFreshPreview(sourceId, windowAddresses(sourceId, moved));
-        if (!WorkspaceService.moveWindow(toplevel.address, target.workspaceId)) {
-            cancelFreshPreview(target.workspaceId);
-            cancelFreshPreview(sourceId);
-        }
+        WorkspaceService.moveWindow(toplevel.address, target.workspaceId);
     }
 
+    // Возвращает индекс карточки, расположенной под координатами drag-жеста.
     function cardIndexAt(source, pointerX, pointerY) {
         const point = source.mapToItem(grid, pointerX, pointerY);
         for (let index = 0; index < cardRepeater.count; index++) {
@@ -406,6 +254,7 @@ PanelWindow {
         return -1;
     }
 
+    // Перемещает drag-копию и подсвечивает допустимую целевую карточку.
     function updateWindowDropTarget(source, pointerX, pointerY) {
         if (!draggingWindow)
             return;
@@ -415,6 +264,7 @@ PanelWindow {
             ? index : -1;
     }
 
+    // Завершает жест: запускает перенос при попадании в карточку и очищает state.
     function finishWindowDrag(source, pointerX, pointerY) {
         if (!draggingWindow)
             return;
@@ -554,8 +404,6 @@ PanelWindow {
                         readonly property var wallpaper: wallpapers.backgroundFor(
                             modelData.monitorName || String(overview.targetScreen?.name ?? ""))
                         readonly property Item previewCanvas: workspaceCanvas
-                        readonly property bool previewRefreshPending:
-                            overview.previewRefreshActive(modelData.workspaceId)
 
                         // Тень строится кольцом: центр вырезан маской и не
                         // затемняет стеклянную поверхность самой карточки.
@@ -600,13 +448,27 @@ PanelWindow {
                                 maskSource: canvasMask
                             }
 
-                            Image {
+                            // Обои — отдельный нижний слой workspace. Он
+                            // создаётся раньше динамических миниатюр, поэтому
+                            // те располагаются выше без ручного z-index.
+                            // Это ровно один закэшированный texture-layer на
+                            // workspace, а не отдельная загрузка под окно.
+                            Item {
+                                id: wallpaperLayer
                                 anchors.fill: parent
-                                source: card.wallpaper.image
-                                sourceSize.width: Math.ceil(workspaceCanvas.width * card.monitorScale)
-                                sourceSize.height: Math.ceil(workspaceCanvas.height * card.monitorScale)
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
+                                layer.enabled: true
+
+                                Image {
+                                    anchors.fill: parent
+                                    source: card.wallpaper.image
+                                    cache: true
+                                    sourceSize.width: Math.ceil(
+                                        workspaceCanvas.width * card.monitorScale)
+                                    sourceSize.height: Math.ceil(
+                                        workspaceCanvas.height * card.monitorScale)
+                                    fillMode: Image.PreserveAspectCrop
+                                    asynchronous: true
+                                }
                             }
 
                             Text {
@@ -634,39 +496,6 @@ PanelWindow {
                                 radius: workspaceCanvas.radius
                                 color: Theme.shadowMaskColor
                             }
-                        }
-
-                        // Keep the dimmer as a card sibling with explicit
-                        // canvas geometry. Dynamic thumbnail reparenting then
-                        // cannot change its parent or make it cover one window
-                        // instead of the complete workspace preview.
-                        Rectangle {
-                            id: workspaceCanvasDimmer
-                            x: workspaceCanvas.x
-                            y: workspaceCanvas.y
-                            width: workspaceCanvas.width
-                            height: workspaceCanvas.height
-                            radius: workspaceCanvas.radius
-                            color: Theme.overlayColor
-                            opacity: card.previewRefreshPending ? 1 : 0
-                            visible: card.previewRefreshPending || opacity > 0
-                            z: 100000
-
-                            Behavior on opacity {
-                                StandardAnimation {
-                                    duration: Motion.durationMs
-                                }
-                            }
-                        }
-
-                        // This is a render-frame hook, not a temporal delay.
-                        // It makes a same-batch export observable before the
-                        // final event is allowed to fade the dimmer back out.
-                        FrameAnimation {
-                            running: overview.previewRefreshActive(card.modelData.workspaceId)
-                                && !overview.previewDimmerPresented(card.modelData.workspaceId)
-                            onTriggered: overview.markPreviewDimmerPresented(
-                                card.modelData.workspaceId)
                         }
 
                         Text {

@@ -14,18 +14,13 @@ PanelWindow {
 
     required property var barWindow
     required property Item anchorItem
-    property int testLayoutCount: 0
     property int pendingSelectionToken: 0
-    property int selectedTestIndex: -1
     // Курсор клавиатуры не является подтверждённой системной раскладкой.
     // Он живёт только пока popup открыт и управляет Up/Down/Enter.
     property int navigationIndex: -1
     property bool expanded: false
     property real reveal: expanded ? 1 : 0
-    readonly property var entries: KeyboardLayoutService.layouts.concat(
-        Array.from({ length: testLayoutCount }, (_, i) => ({
-            index: -1, label: String(i + 1), name: "", test: true
-        })))
+    readonly property var entries: KeyboardLayoutService.layouts
     readonly property int rowHeight: 32
     readonly property int revealTravel: 24
     readonly property real springScaleOverflow: Math.max(0,
@@ -120,10 +115,6 @@ PanelWindow {
         const entry = entries[row];
         if (!entry || !expanded)
             return;
-        if (entry.test) {
-            selectedTestIndex = row;
-            return; // Тестовые карточки меняют только выделение, без Hyprland IPC.
-        }
         if (entry.index === KeyboardLayoutService.activeIndex) {
             dismiss();
         } else if (KeyboardLayoutService.select(entry.index)) {
@@ -282,9 +273,8 @@ PanelWindow {
                     id: row
                     required property var modelData
                     required property int index
-                    readonly property bool selected: modelData.test
-                        ? popup.selectedTestIndex === index
-                        : modelData.index === KeyboardLayoutService.activeIndex
+                    readonly property bool selected:
+                        modelData.index === KeyboardLayoutService.activeIndex
                     readonly property bool navigationCurrent: index === popup.navigationIndex
                     width: layoutList.width
                     height: popup.rowHeight
@@ -292,17 +282,28 @@ PanelWindow {
                     // ListView управляет позицией делегата. Отступ для AA
                     // задаётся его дочерней поверхности, одинаково с двух сторон.
                     Rectangle {
+                        id: pointerHover
                         anchors.fill: parent
                         anchors.leftMargin: 1
                         anchors.rightMargin: 1
                         radius: Metrics.panelRadius - 2
                         color: Theme.hoverColor
-                        opacity: rowMouse.containsMouse ? 1 : 0
+                        opacity: 0
+                        state: rowMouse.containsMouse ? "hovered" : ""
                         antialiasing: true
 
-                        Behavior on opacity {
-                            StandardAnimation {
-                                duration: Motion.durationMs
+                        states: State {
+                            name: "hovered"
+                            PropertyChanges {
+                                target: pointerHover
+                                opacity: 1
+                            }
+                        }
+
+                        transitions: Transition {
+                            NumberAnimation {
+                                property: "opacity"
+                                duration: Motion.quickDurationMs
                             }
                         }
                     }
@@ -322,7 +323,7 @@ PanelWindow {
                         antialiasing: true
 
                         Behavior on color {
-                            ColorAnimation { duration: Motion.durationMs }
+                            ColorAnimation { duration: Motion.quickDurationMs }
                         }
                     }
 
@@ -333,10 +334,17 @@ PanelWindow {
                         anchors.rightMargin: 1
                         radius: Metrics.panelRadius - 2
                         color: Theme.transparentColor
-                        border.width: row.selected ? 0.5 : 0
+                        opacity: row.selected ? 1 : 0
+                        border.width: 0.5
                         border.pixelAligned: false
                         border.color: Theme.borderColor
                         antialiasing: true
+
+                        Behavior on opacity {
+                            StandardAnimation {
+                                duration: Motion.quickDurationMs
+                            }
+                        }
                     }
 
                     Text {
@@ -364,8 +372,7 @@ PanelWindow {
                     MouseArea {
                         id: rowMouse
                         anchors.fill: parent
-                        enabled: popup.expanded && (row.modelData.test
-                            || !KeyboardLayoutService.selectionBlocked)
+                        enabled: popup.expanded && !KeyboardLayoutService.selectionBlocked
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {

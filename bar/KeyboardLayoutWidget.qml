@@ -13,9 +13,7 @@ Item {
     required property var barWindow
 
     property bool popupOpen: false
-    // Временная модель для ручной проверки прокрутки; 0 возвращает обычный список.
-    property int testLayoutCount: 32
-    readonly property bool canInteract: KeyboardLayoutService.available || testLayoutCount > 0
+    readonly property bool canInteract: KeyboardLayoutService.available
     implicitWidth: content.width
     implicitHeight: content.height
     width: implicitWidth
@@ -103,7 +101,6 @@ Item {
         component: KeyboardLayoutPopup {
             barWindow: widget.barWindow
             anchorItem: widget
-            testLayoutCount: widget.testLayoutCount
             onDismissed: widget.closePopup()
         }
     }

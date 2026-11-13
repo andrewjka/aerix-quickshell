@@ -14,6 +14,7 @@ QtObject {
     // Значения сохраняют интерфейс рабочим до первого успешного чтения.
     property var motionConfiguration: ({
         durationMs: 512,
+        quickDurationMs: 256,
         springStartScale: 0.16,
         springOvershoot: 0.16,
         dockCloseDelayMs: 1128,
@@ -21,6 +22,7 @@ QtObject {
     })
 
     readonly property int durationMs: motionConfiguration.durationMs
+    readonly property int quickDurationMs: motionConfiguration.quickDurationMs
     readonly property real springStartScale: motionConfiguration.springStartScale
     readonly property real springOvershoot: motionConfiguration.springOvershoot
     readonly property int dockCloseDelayMs: motionConfiguration.dockCloseDelayMs

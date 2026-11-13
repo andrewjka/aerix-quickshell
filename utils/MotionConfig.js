@@ -1,6 +1,6 @@
 // Строгий плоский формат motion.conf без overrides и вложенных секций.
-var keys = ["durationMs", "springStartScale", "springOvershoot", "dockCloseDelayMs",
-            "bezierCurve"];
+var keys = ["durationMs", "quickDurationMs", "springStartScale", "springOvershoot",
+            "dockCloseDelayMs", "bezierCurve"];
 
 function isFiniteNumber(value) {
     return typeof value === "number" && isFinite(value);
@@ -44,6 +44,7 @@ function parse(text) {
         throw new Error("Ожидаемые поля: " + keys.join(", "));
 
     if (!Number.isInteger(values.durationMs)
+        || !Number.isInteger(values.quickDurationMs)
         || !Number.isInteger(values.dockCloseDelayMs))
         throw new Error("Длительности должны быть целыми миллисекундами");
     if (values.springStartScale > 1 || values.springOvershoot > 1)

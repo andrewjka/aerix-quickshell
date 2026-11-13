@@ -7,7 +7,9 @@ import Quickshell.Wayland
 import "../core"
 import "../services"
 
-PopupWindow {
+// Hyprglass обрабатывает blur только на layer-shell surface. Snapshot и его
+// lifecycle остаются прежними, но контейнером служит отдельный PanelWindow.
+PanelWindow {
     id: preview
 
     // Popup создаётся LazyLoader только при наведении. Внутри используется
@@ -16,6 +18,8 @@ PopupWindow {
     required property var toplevel
     required property Item iconItem
     required property real panelTop
+    property real surfaceX: 0
+    property real surfaceY: 0
 
     // Размер сохраняет пропорции исходного окна, ограничиваясь базовым 16:9.
     readonly property real contentAspect: previewImage.hasContent
@@ -23,38 +27,61 @@ PopupWindow {
         && previewImage.sourceSize.height > 0
         ? previewImage.sourceSize.width / previewImage.sourceSize.height
         : Metrics.previewWidth / Metrics.previewHeight
-
-    // Popup привязан к окну панели; движущийся делегат служит только
-    // источником координат. Связанные ниже geometry signals запрашивают
-    // повторное закрепление, так как mapToItem() сам не создаёт QML binding.
-    anchor.window: panelWindow
-    anchor.edges: Edges.Top | Edges.Left
-    anchor.gravity: Edges.Bottom | Edges.Right
-    anchor.adjustment: PopupAdjustment.SlideX | PopupAdjustment.SlideY
-    implicitWidth: contentAspect >= Metrics.previewWidth / Metrics.previewHeight
+    readonly property int surfaceWidth: contentAspect >= Metrics.previewWidth / Metrics.previewHeight
         ? Metrics.previewWidth
         : Metrics.previewHeight * contentAspect
-    implicitHeight: implicitWidth / contentAspect + Metrics.previewTitleHeight
+    readonly property int surfaceHeight: surfaceWidth / contentAspect
+        + Metrics.previewTitleHeight
+    // transformOrigin снизу: spring растит preview в стороны и вверх.
+    // Внешняя layer-surface оставляет запас ровно под максимальный overshoot.
+    readonly property real springScaleOverflow: Math.max(0,
+        Motion.spring.maximumScale - 1)
+    readonly property int horizontalRenderMargin: Math.ceil(
+        surfaceWidth * springScaleOverflow / 2) + 1
+    readonly property int topRenderMargin: Math.ceil(
+        surfaceHeight * springScaleOverflow) + 1
+
+    screen: panelWindow?.screen ?? null
+    anchors { top: true; left: true }
+    margins.left: surfaceX
+    margins.top: surfaceY
+    implicitWidth: surfaceWidth + 2 * horizontalRenderMargin
+    implicitHeight: surfaceHeight + topRenderMargin
     color: Theme.transparentColor
     visible: toplevel !== null && iconItem !== null
-
-    /** Пересчитывает popup anchor только при изменении его входной геометрии. */
-    function updateAnchor() {
-        if (visible)
-            anchor.updateAnchor();
+    exclusionMode: ExclusionMode.Ignore
+    focusable: false
+    WlrLayershell.namespace: "aerix:dock-window-preview"
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    mask: Region { item: previewFrame }
+    // Тот же protocol-запрос, что у карточек overview и popup раскладки.
+    BackgroundEffect.blurRegion: Region {
+        item: previewFrame
+        radius: Metrics.previewRadius
     }
 
-    // Нижний край карточки закрепляется над поверхностью панели.
-    // Координаты иконки переводятся в систему окна в момент показа.
-    anchor.onAnchoring: {
-        if (!iconItem || !panelWindow?.contentItem)
+    /** Пересчитывает геометрию layer-surface по прежнему якорю Dock. */
+    function updateAnchor() {
+        if (!iconItem || !panelWindow?.contentItem || !panelWindow.screen)
             return;
 
         const iconPosition = iconItem.mapToItem(panelWindow.contentItem, 0, 0);
-        anchor.rect.x = Math.round(iconPosition.x
-                                   + iconItem.width / 2
-                                   - width / 2);
-        anchor.rect.y = Math.round(panelTop - height - Metrics.spacing);
+        // DockPanel закреплён снизу и центрирован по горизонтали. Wayland
+        // не предоставляет его глобальную позицию через mapToGlobal().
+        // Восстанавливаем начало Dock из тех же anchors и размеров output.
+        const screenWidth = panelWindow.screen.width;
+        const screenHeight = panelWindow.screen.height;
+        const dockX = (screenWidth - panelWindow.width) / 2;
+        const dockY = screenHeight - panelWindow.height;
+        const desiredX = dockX + iconPosition.x
+            + iconItem.width / 2 - surfaceWidth / 2 - horizontalRenderMargin;
+        surfaceX = Math.round(Math.max(0, Math.min(desiredX,
+            Math.max(0, screenWidth - implicitWidth))));
+        const desiredY = dockY + panelTop
+            - surfaceHeight - Metrics.spacing - topRenderMargin;
+        surfaceY = Math.round(Math.max(0, Math.min(desiredY,
+            Math.max(0, screenHeight - implicitHeight))));
     }
 
     /** Начинает появление карточки от нижней центральной точки. */
@@ -65,7 +92,20 @@ PopupWindow {
     }
 
     onToplevelChanged: reveal()
-    Component.onCompleted: reveal()
+    onVisibleChanged: placementTimer.restart()
+    onScreenChanged: placementTimer.restart()
+    Component.onCompleted: {
+        // Повторяем расчёт после инициализации размеров и дочерних элементов.
+        // Timer уничтожается вместе с preview при закрытии LazyLoader.
+        placementTimer.start();
+        reveal();
+    }
+
+    Timer {
+        id: placementTimer
+        interval: 0
+        onTriggered: preview.updateAnchor()
+    }
 
     // Позиция делегата может стать доступной после создания popup. Размер
     // меняется после первого кадра ScreencopyView, поэтому также центрируем
@@ -115,6 +155,19 @@ PopupWindow {
         function onYChanged() { preview.updateAnchor(); }
     }
 
+    // Изменение ширины Dock сдвигает его левый край относительно центра output.
+    Connections {
+        target: preview.panelWindow
+
+        function onWidthChanged() { preview.updateAnchor(); }
+        function onHeightChanged() { preview.updateAnchor(); }
+    }
+
+    Connections {
+        target: preview.screen
+        function onGeometryChanged() { preview.updateAnchor(); }
+    }
+
     // Один общий transition для opacity и scale; 512 мс — согласованное время
     // движения превью.
     ParallelAnimation {
@@ -138,7 +191,10 @@ PopupWindow {
 
     Rectangle {
         id: previewFrame
-        anchors.fill: parent
+        x: preview.horizontalRenderMargin
+        y: preview.topRenderMargin
+        width: preview.surfaceWidth
+        height: preview.surfaceHeight
         radius: Metrics.previewRadius
         color: Theme.backgroundColor
         clip: true
@@ -149,7 +205,7 @@ PopupWindow {
             x: 0
             y: Metrics.previewTitleHeight
             width: parent.width
-            height: preview.implicitWidth / preview.contentAspect
+            height: preview.surfaceWidth / preview.contentAspect
 
             ScreencopyView {
                 id: previewImage
@@ -182,14 +238,12 @@ PopupWindow {
             }
         }
 
-        // Status bar находится поверх snapshot и содержит только лёгкие данные.
-        Rectangle {
+        // Заголовок лежит прямо на размытом фоне preview без отдельной заливки.
+        Item {
             x: 0
             y: 0
             width: parent.width
             height: Metrics.previewTitleHeight
-            color: Theme.backgroundColor
-            radius: Metrics.previewRadius
 
             Image {
                 id: previewIcon
@@ -223,7 +277,10 @@ PopupWindow {
     }
 
     Rectangle {
-        anchors.fill: parent
+        x: previewFrame.x
+        y: previewFrame.y
+        width: previewFrame.width
+        height: previewFrame.height
         radius: Metrics.previewRadius
         color: Theme.transparentColor
         border.width: 1
