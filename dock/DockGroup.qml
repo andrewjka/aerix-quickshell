@@ -113,10 +113,10 @@ Item {
         StandardAnimation {}
     }
     Behavior on leftHoverExpansion {
-        StandardAnimation { duration: Motion.standardDurationMs }
+        StandardAnimation { duration: Motion.durationMs }
     }
     Behavior on rightHoverExpansion {
-        StandardAnimation { duration: Motion.standardDurationMs }
+        StandardAnimation { duration: Motion.durationMs }
     }
 
     Repeater {

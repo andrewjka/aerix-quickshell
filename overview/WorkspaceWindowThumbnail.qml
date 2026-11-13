@@ -59,7 +59,7 @@ Rectangle {
     // прозрачные окна, особенно в drag-копии.
     color: Theme.transparentColor
     border.width: 0
-    border.color: Theme.selectionOutlineColor
+    border.color: Theme.borderColor
 
     // A window created/resized while the overview is open can reject its
     // initial export. Geometry and workspace hooks retry without polling.
@@ -225,7 +225,7 @@ Rectangle {
         visible: !thumbnail.hasCachedFrame
         width: parent.width - 6
         text: String(thumbnail.toplevel?.title ?? "Окно")
-        color: Theme.glassTextColor
+        color: Theme.foregroundColor
         font.pixelSize: 10
         elide: Text.ElideRight
         horizontalAlignment: Text.AlignHCenter
@@ -246,9 +246,9 @@ Rectangle {
     }
     Rectangle {
         anchors.fill: parent
-        color: "transparent"
+        color: Theme.transparentColor
         radius: thumbnail.radius
         border.width: pointer.containsMouse ? 2 : 0
-        border.color: Theme.selectionOutlineColor
+        border.color: Theme.borderColor
     }
 }

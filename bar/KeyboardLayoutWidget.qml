@@ -53,7 +53,7 @@ Item {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             text: KeyboardLayoutService.activeLabel
-            color: widget.canInteract ? Theme.enabledTextColor : Theme.disabledTextColor
+            color: widget.canInteract ? Theme.foregroundColor : Theme.disabledForegroundColor
             font.pixelSize: Metrics.statusBarFontSize
             font.weight: Font.Medium
             verticalAlignment: Text.AlignVCenter

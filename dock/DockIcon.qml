@@ -33,7 +33,7 @@ Item {
 
     Behavior on hoverOffset {
         StandardAnimation {
-            duration: Motion.standardDurationMs
+            duration: Motion.durationMs
         }
     }
 
@@ -54,7 +54,7 @@ Item {
 
         Behavior on y {
             StandardAnimation {
-                duration: Motion.standardDurationMs
+                duration: Motion.durationMs
             }
         }
 
@@ -82,12 +82,12 @@ Item {
             anchors.fill: parent
             visible: !appImage.visible
             radius: 16
-            color: Theme.elevatedSurfaceColor
+            color: Theme.backgroundColor
 
             Text {
                 anchors.centerIn: parent
                 text: icon.applicationName.slice(0, 1).toUpperCase() || "?"
-                color: Theme.glassTextColor
+                color: Theme.foregroundColor
                 font.pixelSize: 18
                 font.weight: Font.DemiBold
             }

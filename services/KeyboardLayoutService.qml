@@ -3,7 +3,7 @@ pragma Singleton
 import QtQml
 import Quickshell.Hyprland
 import Quickshell.Io
-import "KeyboardLayoutParser.js" as KeyboardLayoutParser
+import "../utils/KeyboardLayoutParser.js" as KeyboardLayoutParser
 
 // Единый источник подтверждённого Hyprland состояния раскладки для всех Bar.
 QtObject {

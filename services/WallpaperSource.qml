@@ -1,5 +1,6 @@
 import QtQml
 import Quickshell.Io
+import "../core"
 
 // Живёт вместе с overview. awww задаёт фон output, общий для его workspace.
 // Фон запрашивается один раз при создании; смена обоев при открытом overview
@@ -13,7 +14,7 @@ QtObject {
     property bool failed: false
 
     function backgroundFor(monitorName) {
-        return outputs[monitorName] ?? { image: "", color: "transparent" };
+        return outputs[monitorName] ?? { image: "", color: Theme.transparentColor };
     }
 
     function refresh() {
@@ -42,7 +43,8 @@ QtObject {
                     const displaying = monitor.displaying ?? {};
                     next[monitor.name] = {
                         image: displaying.image ? "file://" + encodeURI(displaying.image).replace(/#/g, "%23").replace(/\?/g, "%3F") : "",
-                        color: displaying.color ? "#" + String(displaying.color).replace(/^#/, "") : "transparent"
+                        color: displaying.color ? "#" + String(displaying.color).replace(/^#/, "")
+                            : Theme.transparentColor
                     };
                 }
                 if (JSON.stringify(next) !== JSON.stringify(source.outputs))

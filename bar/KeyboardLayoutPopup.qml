@@ -29,9 +29,9 @@ PanelWindow {
     readonly property int rowHeight: 32
     readonly property int revealTravel: 24
     readonly property real springScaleOverflow: Math.max(0,
-        Motion.surfaceSpring.maximumScale - 1)
+        Motion.spring.maximumScale - 1)
     readonly property real springProgressOverflow: Math.max(0,
-        Motion.surfaceSpring.maximumProgress - 1)
+        Motion.spring.maximumProgress - 1)
     readonly property int shadowMargin: Math.ceil(Metrics.panelShadowRadius) + 1
     // transformOrigin равен Top: масштаб растит content целиком вниз, а не
     // поровну в обе стороны. Начальная фаза раскрытия, напротив, уходит вверх.
@@ -100,9 +100,9 @@ PanelWindow {
     // Одна прерываемая анимация: повторный клик меняет цель от текущего значения.
     Behavior on reveal {
         NumberAnimation {
-            duration: Motion.surfaceSpring.durationMs
-            easing.type: Motion.surfaceSpring.easingType
-            easing.bezierCurve: Motion.surfaceSpring.bezierCurve
+            duration: Motion.spring.durationMs
+            easing.type: Motion.spring.easingType
+            easing.bezierCurve: Motion.spring.bezierCurve
             onRunningChanged: {
                 if (!running && !popup.expanded && popup.reveal === 0)
                     popup.dismissed();
@@ -230,10 +230,10 @@ PanelWindow {
         width: popup.surfaceWidth
         height: popup.surfaceHeight
         radius: Metrics.panelRadius
-        color: Theme.floatingSurfaceBackgroundColor
+        color: Theme.backgroundColor
         antialiasing: true
-        scale: Motion.surfaceSpring.startScale
-            + (1 - Motion.surfaceSpring.startScale) * popup.reveal
+        scale: Motion.spring.startScale
+            + (1 - Motion.spring.startScale) * popup.reveal
         transformOrigin: Item.Top
         opacity: Math.max(0, Math.min(1, popup.reveal))
 
@@ -296,13 +296,13 @@ PanelWindow {
                         anchors.leftMargin: 1
                         anchors.rightMargin: 1
                         radius: Metrics.panelRadius - 2
-                        color: Theme.hoverOverlayColor
+                        color: Theme.hoverColor
                         opacity: rowMouse.containsMouse ? 1 : 0
                         antialiasing: true
 
                         Behavior on opacity {
                             StandardAnimation {
-                                duration: Motion.standardDurationMs
+                                duration: Motion.durationMs
                             }
                         }
                     }
@@ -314,15 +314,15 @@ PanelWindow {
                         anchors.leftMargin: 1
                         anchors.rightMargin: 1
                         radius: Metrics.panelRadius - 2
-                        color: row.navigationCurrent ? Theme.hoverOverlayColor
+                        color: row.navigationCurrent ? Theme.hoverColor
                                                      : Theme.transparentColor
                         border.width: row.navigationCurrent && !row.selected ? 0.5 : 0
                         border.pixelAligned: false
-                        border.color: Theme.glassTextColor
+                        border.color: Theme.borderColor
                         antialiasing: true
 
                         Behavior on color {
-                            ColorAnimation { duration: Motion.standardDurationMs }
+                            ColorAnimation { duration: Motion.durationMs }
                         }
                     }
 
@@ -335,7 +335,7 @@ PanelWindow {
                         color: Theme.transparentColor
                         border.width: row.selected ? 0.5 : 0
                         border.pixelAligned: false
-                        border.color: Theme.selectionOutlineColor
+                        border.color: Theme.borderColor
                         antialiasing: true
                     }
 
@@ -345,7 +345,7 @@ PanelWindow {
                         anchors.leftMargin: Metrics.spacing
                         anchors.verticalCenter: parent.verticalCenter
                         text: row.modelData.label
-                        color: Theme.glassTextColor
+                        color: Theme.foregroundColor
                         font.pixelSize: Metrics.statusBarFontSize
                         font.weight: row.selected ? Font.DemiBold : Font.Medium
                     }
@@ -358,7 +358,7 @@ PanelWindow {
                         horizontalAlignment: Text.AlignRight
                         elide: Text.ElideRight
                         text: row.modelData.name
-                        color: Theme.glassTextColor
+                        color: Theme.foregroundColor
                         font.pixelSize: 13
                     }
                     MouseArea {
@@ -383,7 +383,7 @@ PanelWindow {
                 width: layoutList.width
                 visible: KeyboardLayoutService.error.length > 0
                 text: KeyboardLayoutService.error
-                color: Theme.errorColor
+                color: Theme.accentColor
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2

@@ -446,9 +446,9 @@ PanelWindow {
         property: "reveal"
         from: 0
         to: 1
-        duration: Motion.surfaceSpring.durationMs
-        easing.type: Motion.surfaceSpring.easingType
-        easing.bezierCurve: Motion.surfaceSpring.bezierCurve
+        duration: Motion.spring.durationMs
+        easing.type: Motion.spring.easingType
+        easing.bezierCurve: Motion.spring.bezierCurve
     }
 
     Connections {
@@ -464,7 +464,7 @@ PanelWindow {
     Rectangle {
         id: backdrop
         anchors.fill: parent
-        color: Theme.overviewScrimColor
+        color: Theme.overlayColor
         opacity: Math.max(0, Math.min(1, overview.reveal))
     }
 
@@ -512,8 +512,8 @@ PanelWindow {
                 + overview.cardHeaderHeight + overview.cardFooterHeight)
                 + (overview.rows - 1) * Metrics.spacing
             transformOrigin: Item.Center
-            scale: Motion.surfaceSpring.startScale
-                + (1 - Motion.surfaceSpring.startScale) * overview.reveal
+            scale: Motion.spring.startScale
+                + (1 - Motion.spring.startScale) * overview.reveal
             opacity: Math.max(0, Math.min(1, overview.reveal))
 
             Grid {
@@ -539,13 +539,12 @@ PanelWindow {
                         height: (grid.height - (overview.rows - 1) * grid.spacing)
                             / overview.rows
                         radius: Metrics.panelRadius
-                        // Такая же стеклянная поверхность, как Dock и popup.
-                        color: Theme.floatingSurfaceBackgroundColor
+                        color: Theme.backgroundColor
                         border.width: overview.dragTargetIndex === index
                             || (!overview.draggingWindow && !overview.hoveredWindow
                                 && (cardHover.hovered || (overview.keyboardSelection
                                     && overview.selectionIndex === index))) ? 2 : 0
-                        border.color: Theme.selectionOutlineColor
+                        border.color: Theme.borderColor
                         opacity: overview.pendingWorkspaceId >= 0
                             && overview.pendingWorkspaceId !== modelData.workspaceId ? 0.65 : 1
 
@@ -614,7 +613,7 @@ PanelWindow {
                                 anchors.centerIn: parent
                                 visible: card.modelData.windows.length === 0
                                 text: "Пусто"
-                                color: Theme.glassTextColor
+                                color: Theme.foregroundColor
                                 opacity: 0.72
                                 font.pixelSize: 14
                             }
@@ -633,7 +632,7 @@ PanelWindow {
                             Rectangle {
                                 anchors.fill: parent
                                 radius: workspaceCanvas.radius
-                                color: "black"
+                                color: Theme.shadowMaskColor
                             }
                         }
 
@@ -648,14 +647,14 @@ PanelWindow {
                             width: workspaceCanvas.width
                             height: workspaceCanvas.height
                             radius: workspaceCanvas.radius
-                            color: Theme.overviewScrimColor
+                            color: Theme.overlayColor
                             opacity: card.previewRefreshPending ? 1 : 0
                             visible: card.previewRefreshPending || opacity > 0
                             z: 100000
 
                             Behavior on opacity {
                                 StandardAnimation {
-                                    duration: Motion.standardDurationMs
+                                    duration: Motion.durationMs
                                 }
                             }
                         }
@@ -676,7 +675,7 @@ PanelWindow {
                             anchors.top: parent.top
                             anchors.topMargin: 6
                             text: card.modelData.label
-                            color: Theme.glassTextColor
+                            color: Theme.foregroundColor
                             font.pixelSize: 22
                             font.weight: Font.DemiBold
                         }
@@ -690,7 +689,7 @@ PanelWindow {
                             anchors.rightMargin: Metrics.spacing
                             text: card.modelData.monitorName.length > 0
                                 ? card.modelData.monitorName : "Не создан"
-                            color: Theme.glassTextColor
+                            color: Theme.foregroundColor
                             opacity: 0.72
                             font.pixelSize: 12
                             elide: Text.ElideRight
@@ -721,7 +720,7 @@ PanelWindow {
             color: Theme.transparentColor
             clip: true
             border.width: 1
-            border.color: Theme.selectionOutlineColor
+            border.color: Theme.borderColor
             ShaderEffectSource {
                 anchors.fill: parent
                 anchors.margins: 1
@@ -737,7 +736,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottomMargin: Metrics.spacing * 3
             text: WorkspaceService.busy ? "Перенос…" : WorkspaceService.operationError
-            color: WorkspaceService.operationError ? Theme.errorColor : Theme.glassTextColor
+            color: WorkspaceService.operationError ? Theme.accentColor : Theme.foregroundColor
         }
     }
 }

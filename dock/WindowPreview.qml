@@ -125,14 +125,14 @@ PopupWindow {
             property: "scale"
             from: 0.12
             to: 1
-            duration: Motion.standardDurationMs
+            duration: Motion.durationMs
         }
         StandardAnimation {
             target: previewFrame
             property: "opacity"
             from: 0
             to: 1
-            duration: Motion.standardDurationMs
+            duration: Motion.durationMs
         }
     }
 
@@ -140,7 +140,7 @@ PopupWindow {
         id: previewFrame
         anchors.fill: parent
         radius: Metrics.previewRadius
-        color: Theme.floatingSurfaceBackgroundColor
+        color: Theme.backgroundColor
         clip: true
         transformOrigin: Item.Bottom
 
@@ -188,7 +188,7 @@ PopupWindow {
             y: 0
             width: parent.width
             height: Metrics.previewTitleHeight
-            color: Theme.windowPreviewTitleBackgroundColor
+            color: Theme.backgroundColor
             radius: Metrics.previewRadius
 
             Image {
@@ -215,7 +215,7 @@ PopupWindow {
                 text: String(preview.toplevel?.title
                              ?? preview.toplevel?.lastIpcObject?.title
                              ?? "Preview")
-                color: Theme.glassTextColor
+                color: Theme.foregroundColor
                 font.pixelSize: 12
                 elide: Text.ElideRight
             }
@@ -227,7 +227,7 @@ PopupWindow {
         radius: Metrics.previewRadius
         color: Theme.transparentColor
         border.width: 1
-        border.color: Theme.selectionOutlineColor
+        border.color: Theme.borderColor
         scale: previewFrame.scale
         opacity: previewFrame.opacity
         transformOrigin: Item.Bottom

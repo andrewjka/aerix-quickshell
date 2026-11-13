@@ -47,8 +47,7 @@ PanelWindow {
         topRightRadius: 0
         bottomLeftRadius: Metrics.panelRadius
         bottomRightRadius: Metrics.panelRadius
-        // Status Bar использует собственную палитру Theme.
-        color: Theme.statusBarBackgroundColor
+        color: Theme.backgroundColor
         antialiasing: true
 
         // Этот обработчик находится ниже интерактивных виджетов. Пока popup

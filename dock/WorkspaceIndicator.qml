@@ -57,7 +57,8 @@ Rectangle {
     color: Theme.transparentColor
     border.width: 0.5
     border.pixelAligned: false
-    border.color: Theme.selectionOutlineColor
+    // Активный workspace использует тот же цвет рамки, но без общей alpha.
+    border.color: Theme.withOpacity("border", 1)
     antialiasing: true
 
     // Сначала переносим и расширяем обводку, затем возвращаем её высоту.
@@ -71,21 +72,21 @@ Rectangle {
                 // Без from анимация продолжает текущую высоту после
                 // прерывания, вместо мгновенного возврата к нулю.
                 to: 20
-                duration: Motion.standardDurationMs
+                duration: Motion.durationMs
             }
             StandardAnimation {
                 target: indicator
                 property: "slideProgress"
                 from: 0
                 to: 1
-                duration: Motion.standardDurationMs
+                duration: Motion.durationMs
             }
         }
         StandardAnimation {
             target: indicator
             property: "verticalExpansion"
             to: 0
-            duration: Motion.standardDurationMs
+            duration: Motion.durationMs
         }
     }
 
@@ -96,6 +97,6 @@ Rectangle {
         property: "nudgeProgress"
         from: 0
         to: 1
-        duration: Motion.standardDurationMs
+        duration: Motion.durationMs
     }
 }

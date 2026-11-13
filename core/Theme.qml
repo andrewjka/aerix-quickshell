@@ -3,10 +3,10 @@ pragma Singleton
 import QtQml
 import Quickshell
 import Quickshell.Io
-import "../services/ThemeConfig.js" as Config
+import "../utils/ThemeConfig.js" as Config
 
 // Выбор файла и палитра обновляются независимо через наблюдение FileView.
-// Парсер находится в services, отдельно от визуальных токенов.
+// Парсер находится в utils, отдельно от визуальных токенов.
 QtObject {
     id: theme
     property string selectedThemePath: "themes/dark.conf"
@@ -15,35 +15,32 @@ QtObject {
     property string activeThemePath: ""
     // Читаемая аварийная палитра до первого успешного чтения.
     property var palette: ({
-        values: { background: "#192B39", surface: "#000000",
-            surfaceElevated: "#344D60", text: "#EAF5FC", surfaceText: "#FFFFFF",
-            hover: "#FFFFFF", outline: "#FFFFFF", shadow: "#10191F", scrim: "#000000", error: "#F29B9B" },
-        opacity: { background: 1, surface: 0.08, shadow: 0.48, hover: 0.20,
-            outline: 0.92, scrim: 0.63, previewTitle: 0.88, textEnabled: 0.90, textDisabled: 0.50 }
+        values: { background: "#1D2A36", foreground: "#E4F1F7",
+            accent: "#5DBAE7", hover: "#98DDF5", border: "#47677D",
+            shadow: "#0D151B", overlay: "#071017" },
+        opacity: { background: 0.16, foreground: 0.94, accent: 0.96,
+            hover: 0.22, border: 0.78, shadow: 0.52, overlay: 0.66,
+            disabled: 0.52 }
     })
     readonly property string transparentColor: "transparent"
     readonly property string shadowMaskColor: "#FFFFFF"
-    readonly property var primaryTextColor: palette.values.text
-    readonly property var glassTextColor: palette.values.surfaceText
-    readonly property var errorColor: palette.values.error
-    readonly property var elevatedSurfaceColor: palette.values.surfaceElevated
-    // Непрозрачный цвет фона рабочего стола: подложка workspace не должна
-    // наследовать прозрачность стеклянной карточки.
+    readonly property var foregroundColor: withOpacity("foreground", "foreground")
+    readonly property var accentColor: withOpacity("accent", "accent")
+    readonly property var backgroundColor: withOpacity("background", "background")
+    readonly property var hoverColor: withOpacity("hover", "hover")
+    readonly property var borderColor: withOpacity("border", "border")
+    readonly property var shadowColor: withOpacity("shadow", "shadow")
+    readonly property var overlayColor: withOpacity("overlay", "overlay")
+    readonly property var disabledForegroundColor:
+        withOpacity("foreground", "disabled")
+    // Подложка workspace непрозрачна, чтобы не наследовать alpha панели.
     readonly property var desktopBackgroundColor: palette.values.background
-    readonly property var statusBarBackgroundColor: withOpacity("background", "background")
-    readonly property var floatingSurfaceBackgroundColor: withOpacity("surface", "surface")
-    readonly property var panelShadowColor: withOpacity("shadow", "shadow")
-    readonly property var overviewScrimColor: withOpacity("scrim", "scrim")
-    readonly property var hoverOverlayColor: withOpacity("hover", "hover")
-    readonly property var selectionOutlineColor: withOpacity("outline", "outline")
-    readonly property var windowPreviewTitleBackgroundColor:
-        withOpacity("surfaceElevated", "previewTitle")
-    readonly property var enabledTextColor: withOpacity("text", "textEnabled")
-    readonly property var disabledTextColor: withOpacity("text", "textDisabled")
 
     function withOpacity(colorKey, opacityKey) {
         const color = Qt.color(palette.values[colorKey]);
-        return Qt.rgba(color.r, color.g, color.b, palette.opacity[opacityKey]);
+        const opacity = typeof opacityKey === "number"
+            ? opacityKey : palette.opacity[opacityKey];
+        return Qt.rgba(color.r, color.g, color.b, opacity);
     }
     function loadSelection(text) {
         try {

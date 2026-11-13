@@ -28,8 +28,8 @@ PanelWindow {
 
     readonly property real openY: height - Metrics.panelHeight - Metrics.bottomMargin
     readonly property bool interactionEnabled: isOpen && Math.abs(panelSurface.y - openY) < 0.5
-    readonly property real revealScale: Motion.surfaceSpring.startScale
-        + (1 - Motion.surfaceSpring.startScale) * reveal
+    readonly property real revealScale: Motion.spring.startScale
+        + (1 - Motion.spring.startScale) * reveal
     readonly property real revealOpacity: Math.max(0, Math.min(1, reveal))
 
     DockLayout {
@@ -126,9 +126,9 @@ PanelWindow {
 
     Behavior on reveal {
         NumberAnimation {
-            duration: Motion.surfaceSpring.durationMs
-            easing.type: Motion.surfaceSpring.easingType
-            easing.bezierCurve: Motion.surfaceSpring.bezierCurve
+            duration: Motion.spring.durationMs
+            easing.type: Motion.spring.easingType
+            easing.bezierCurve: Motion.spring.bezierCurve
         }
     }
 
@@ -176,7 +176,7 @@ PanelWindow {
         width: panel.panelWidth
         height: Metrics.panelHeight
         radius: Metrics.panelRadius
-        color: Theme.floatingSurfaceBackgroundColor
+        color: Theme.backgroundColor
         scale: panel.revealScale
         opacity: panel.revealOpacity
         transformOrigin: Item.Bottom
@@ -200,7 +200,7 @@ PanelWindow {
             anchors.centerIn: parent
             visible: panel.groups.length === 0
             text: "Aerix"
-            color: Theme.glassTextColor
+            color: Theme.foregroundColor
             font.pixelSize: 16
             font.weight: Font.Medium
         }

@@ -31,7 +31,7 @@ Item {
             bottomLeftRadius: shadow.sourceItem.bottomLeftRadius
             bottomRightRadius: shadow.sourceItem.bottomRightRadius
             blur: Math.max(0, Metrics.panelShadowRadius)
-            color: Theme.panelShadowColor
+            color: Theme.shadowColor
         }
     }
 
