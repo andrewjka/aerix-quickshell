@@ -84,7 +84,7 @@ PanelWindow {
             id: keyboardLayout
             barWindow: statusBar
             anchors.right: volume.left
-            anchors.rightMargin: Metrics.spacing
+            anchors.rightMargin: 2 * Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
             visible: surface.rightWidgetsFit
             onPopupOpened: volume.dismissPopup()
@@ -107,8 +107,9 @@ PanelWindow {
             anchors.centerIn: parent
         }
 
+        readonly property int rightWidgetsWidth: keyboardLayout.implicitWidth
+            + volume.implicitWidth + 2 * Metrics.spacing
         readonly property bool rightWidgetsFit: parent.width >= 2 * (
-            Metrics.spacing + keyboardLayout.implicitWidth + volume.implicitWidth)
-            + clock.implicitWidth
+            Metrics.spacing + rightWidgetsWidth) + clock.implicitWidth
     }
 }

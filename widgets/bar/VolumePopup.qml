@@ -17,12 +17,7 @@ PanelWindow {
     required property Item anchorItem
     property bool expanded: false
     property real reveal: expanded ? 1 : 0
-    // Тестовые строки существуют только пока открыт popup и не попадают в PipeWire.
-    readonly property var testDevices: Array.from({ length: 32 }, (_, index) => ({
-        testDevice: true,
-        name: I18n.tr("audio.testDevice", { number: index + 1 })
-    }))
-    readonly property var entries: AudioService.outputDevices.concat(testDevices)
+    readonly property var entries: AudioService.outputDevices
     readonly property int rowHeight: 32
     readonly property int mixerHeight: 42
     readonly property int sectionLabelHeight: 16
@@ -91,8 +86,6 @@ PanelWindow {
     function dismiss() { expanded = false; }
     function toggle() { expanded = !expanded; }
     function selectDevice(device) {
-        if (device.testDevice)
-            return;
         if (AudioService.selectDevice(device))
             dismiss();
     }
@@ -177,6 +170,14 @@ PanelWindow {
                     layer.enabled: true
                     layer.effect: ColorOverlay {
                         color: Theme.foregroundColor
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: AudioService.available
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: AudioService.setMuted(!AudioService.muted)
                     }
                 }
 
@@ -350,8 +351,7 @@ PanelWindow {
                         id: rowMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        cursorShape: row.modelData.testDevice ? Qt.ArrowCursor
-                                                            : Qt.PointingHandCursor
+                        cursorShape: Qt.PointingHandCursor
                         onClicked: popup.selectDevice(row.modelData)
                     }
                 }
