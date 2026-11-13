@@ -63,6 +63,7 @@ PanelWindow {
     screen: barWindow.screen
     anchors { top: true; left: true }
     exclusionMode: ExclusionMode.Ignore
+    focusable: false
     margins.left: surfaceX - horizontalRenderMargin
     margins.top: popupTop - topRenderMargin
     implicitWidth: surfaceWidth + 2 * horizontalRenderMargin
@@ -70,8 +71,9 @@ PanelWindow {
     color: Theme.transparentColor
     WlrLayershell.namespace: "aerix:volume"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: expanded ? WlrKeyboardFocus.OnDemand
-                                          : WlrKeyboardFocus.None
+    // The mixer is fully pointer-driven. Do not claim Wayland keyboard focus,
+    // otherwise TextInputv3 is needlessly enabled and disabled on each open.
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     mask: Region { item: popupFrame }
 
     Behavior on reveal {
@@ -92,9 +94,15 @@ PanelWindow {
         if (AudioService.selectDevice(device))
             dismiss();
     }
+    function syncFocusGrab() {
+        // Новая layer-поверхность ещё не получила Wayland focus. Отложенная
+        // активация compositor grab не даёт Qt отключать TextInputv3 у
+        // ещё не сфокусированной поверхности.
+        Qt.callLater(() => focusGrab.active = popup.expanded);
+    }
 
     Component.onCompleted: expanded = true
-    onExpandedChanged: focusGrab.active = expanded
+    onExpandedChanged: syncFocusGrab()
 
     HyprlandFocusGrab {
         id: focusGrab
@@ -142,15 +150,8 @@ PanelWindow {
         transformOrigin: Item.Top
         opacity: Math.max(0, Math.min(1, popup.reveal))
 
-        FocusScope {
+        Item {
             anchors.fill: parent
-            focus: true
-            Keys.onPressed: event => {
-                if (event.key !== Qt.Key_Escape)
-                    return;
-                popup.dismiss();
-                event.accepted = true;
-            }
 
             Item {
                 id: mixer
@@ -307,12 +308,23 @@ PanelWindow {
                         anchors.rightMargin: 1
                         radius: Metrics.panelRadius
                         color: Theme.hoverColor
-                        opacity: rowMouse.containsMouse ? 1 : 0
+                        opacity: 0
+                        state: rowMouse.containsMouse ? "hovered" : ""
                         antialiasing: true
 
-                        Behavior on opacity {
-                            Motion.ProfileAnimation {
+                        states: State {
+                            name: "hovered"
+                            PropertyChanges {
+                                target: pointerHover
+                                opacity: 1
+                            }
+                        }
+
+                        transitions: Transition {
+                            NumberAnimation {
+                                property: "opacity"
                                 duration: Motion.quickDurationMs
+                                easing.type: Easing.Linear
                             }
                         }
                     }

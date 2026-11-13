@@ -15,9 +15,6 @@ PanelWindow {
     required property var barWindow
     required property Item anchorItem
     property int pendingSelectionToken: 0
-    // Курсор клавиатуры не является подтверждённой системной раскладкой.
-    // Он живёт только пока popup открыт и управляет Up/Down/Enter.
-    property int navigationIndex: -1
     property bool expanded: false
     property real reveal: expanded ? 1 : 0
     readonly property var entries: KeyboardService.layouts
@@ -82,6 +79,7 @@ PanelWindow {
     anchors { top: true; left: true }
     // Ignore исключает reserved area Bar из расчёта позиции: y задан от экрана.
     exclusionMode: ExclusionMode.Ignore
+    focusable: false
     margins.left: surfaceX - horizontalRenderMargin
     margins.top: popupTop - topRenderMargin
     implicitWidth: surfaceWidth + 2 * horizontalRenderMargin
@@ -89,7 +87,8 @@ PanelWindow {
     color: Theme.transparentColor
     WlrLayershell.namespace: "aerix:keyboard-layout"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: expanded ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    // Выбор раскладки управляется мышью и не должен менять фокус приложения.
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     mask: Region { item: popupFrame }
 
     // Одна прерываемая анимация: повторный клик меняет цель от текущего значения.
@@ -122,46 +121,8 @@ PanelWindow {
         }
     }
 
-    function moveSelection(step) {
-        if (entries.length === 0)
-            return;
-        navigationIndex = Math.max(0,
-            Math.min(entries.length - 1, navigationIndex + step));
-        positionNavigation();
-    }
-
-    function initializeNavigation() {
-        if (entries.length === 0) {
-            navigationIndex = -1;
-            return;
-        }
-        navigationIndex = Math.max(0, Math.min(entries.length - 1,
-            KeyboardService.activeIndex));
-        positionNavigation();
-    }
-
-    function clampNavigation() {
-        if (entries.length === 0) {
-            navigationIndex = -1;
-            return;
-        }
-        navigationIndex = Math.max(0, Math.min(entries.length - 1,
-            navigationIndex < 0 ? KeyboardService.activeIndex : navigationIndex));
-        positionNavigation();
-    }
-
-    function positionNavigation() {
-        if (navigationIndex >= 0 && layoutList)
-            layoutList.positionViewAtIndex(navigationIndex, ListView.Contain);
-    }
-
     Component.onCompleted: expanded = true
-    onExpandedChanged: {
-        focusGrab.active = expanded;
-        if (expanded)
-            initializeNavigation();
-    }
-    onEntriesChanged: clampNavigation()
+    onExpandedChanged: focusGrab.active = expanded
 
     HyprlandFocusGrab {
         id: focusGrab
@@ -228,22 +189,8 @@ PanelWindow {
         transformOrigin: Item.Top
         opacity: Math.max(0, Math.min(1, popup.reveal))
 
-        FocusScope {
+        Item {
             anchors.fill: parent
-            focus: true
-            Keys.onPressed: event => {
-                if (event.key === Qt.Key_Escape)
-                    popup.dismiss();
-                else if (event.key === Qt.Key_Down)
-                    popup.moveSelection(1);
-                else if (event.key === Qt.Key_Up)
-                    popup.moveSelection(-1);
-                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-                    popup.selectLayout(popup.navigationIndex);
-                else
-                    return;
-                event.accepted = true;
-            }
 
             ListView {
                 id: layoutList
@@ -257,7 +204,6 @@ PanelWindow {
                 spacing: Metrics.popupRowSpacing
                 boundsBehavior: Flickable.StopAtBounds
                 model: popup.entries
-                currentIndex: popup.navigationIndex
                 highlightMoveDuration: 0
                 ScrollBar.vertical: ScrollBar {
                     // Полоса занимает внешний padding, а не ширину строк.
@@ -275,7 +221,6 @@ PanelWindow {
                     required property int index
                     readonly property bool selected:
                         modelData.index === KeyboardService.activeIndex
-                    readonly property bool navigationCurrent: index === popup.navigationIndex
                     width: layoutList.width
                     height: popup.rowHeight
 
@@ -305,25 +250,6 @@ PanelWindow {
                                 property: "opacity"
                                 duration: Motion.quickDurationMs
                             }
-                        }
-                    }
-
-                    // Keyboard cursor остаётся отдельным от системного selected:
-                    // Up/Down не выдают подтверждение смены раскладки.
-                    Rectangle {
-                        anchors.fill: parent
-                        anchors.leftMargin: 1
-                        anchors.rightMargin: 1
-                        radius: Metrics.panelRadius
-                        color: row.navigationCurrent ? Theme.hoverColor
-                                                     : Theme.transparentColor
-                        border.width: row.navigationCurrent && !row.selected ? 0.5 : 0
-                        border.pixelAligned: false
-                        border.color: Theme.borderColor
-                        antialiasing: true
-
-                        Behavior on color {
-                            ColorAnimation { duration: Motion.quickDurationMs }
                         }
                     }
 
@@ -375,10 +301,7 @@ PanelWindow {
                         enabled: popup.expanded && !KeyboardService.selectionBlocked
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            popup.navigationIndex = row.index;
-                            popup.selectLayout(row.index);
-                        }
+                        onClicked: popup.selectLayout(row.index)
                     }
                 }
             }
