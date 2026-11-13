@@ -1,23 +1,5 @@
-# Локальные настройки инструментов и секреты.
-# settings.json содержит токен доступа и не должен попадать в репозиторий.
-.claude/
-
-# Генерируется Quickshell: симлинк на runtime-путь qmlls.
+/.claude/
 .qmlls.ini
-qmlls.ini
+/.idea/
+/.vscode/
 
-# Кэш и артефакты QML/Qt.
-*.qmlc
-*.jsc
-*.log
-
-# Файлы IDE и редакторов.
-.idea/
-.vscode/
-*.user
-*.swp
-*~
-
-# Служебные файлы ОС.
-.DS_Store
-Thumbs.db
