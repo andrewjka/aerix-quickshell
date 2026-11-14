@@ -7,4 +7,5 @@ singleton BrightnessService 1.0 BrightnessService.qml
 singleton WorkspaceService 1.0 WorkspaceService.qml
 singleton IpcService 1.0 IpcService.qml
 singleton OverviewService 1.0 OverviewService.qml
+singleton AppLauncherService 1.0 AppLauncherService.qml
 WallpaperSource 1.0 WallpaperSource.qml

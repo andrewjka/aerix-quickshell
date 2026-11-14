@@ -86,6 +86,24 @@ PanelWindow {
             smooth: true
         }
 
+        Text {
+            id: appLauncherTrigger
+            anchors.left: brandLogo.right
+            anchors.leftMargin: Metrics.spacing
+            anchors.verticalCenter: parent.verticalCenter
+            text: "app"
+            color: Theme.foregroundColor
+            font.pixelSize: Metrics.statusBarFontSize
+            font.weight: Font.Medium
+
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -4
+                cursorShape: Qt.PointingHandCursor
+                onClicked: AppLauncherService.toggle()
+            }
+        }
+
         KeyboardLayoutWidget {
             id: keyboardLayout
             barWindow: statusBar

@@ -419,7 +419,7 @@ Scope {
                             || overview.dragTargetIndex === index
                             || (!overview.draggingWindow && !overview.hoveredWindow
                                 && (cardHover.hovered || (overview.keyboardSelection
-                                    && overview.selectionIndex === index))) ? 2 : 0
+                                    && overview.selectionIndex === index))) ? 2 : 1
                         // Только активный workspace использует базовый border
                         // без alpha; hover и drag сохраняют общую прозрачность.
                         border.color: modelData.isActive
@@ -434,13 +434,6 @@ Scope {
                         readonly property var wallpaper: wallpapers.backgroundFor(
                             modelData.monitorName || String(overview.targetScreen?.name ?? ""))
                         readonly property Item previewCanvas: workspaceCanvas
-
-                        // Тень строится кольцом: центр вырезан маской и не
-                        // затемняет стеклянную поверхность самой карточки.
-                        PanelShadow {
-                            sourceItem: card
-                            z: -1
-                        }
 
                         // Фон/подпись перетаскивает workspace; миниатюры выше
                         // самостоятельно захватывают жест переноса окна.
@@ -603,5 +596,11 @@ Scope {
             color: WorkspaceService.operationErrorKey ? Theme.accentColor : Theme.foregroundColor
         }
         }
+    }
+
+    WorkspaceOverviewShadow {
+        targetScreen: overview.targetScreen
+        cardItems: overview.cardItems
+        gridArea: gridArea
     }
 }

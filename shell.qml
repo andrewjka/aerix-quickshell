@@ -6,6 +6,7 @@ import "services"
 import "widgets/bar"
 import "widgets/dock"
 import "widgets/overview"
+import "widgets/launcher"
 
 ShellRoot {
     id: shellRoot
@@ -20,6 +21,15 @@ ShellRoot {
         component: WorkspaceOverview {
             targetScreen: OverviewService.targetScreen
             onDismissed: OverviewService.close()
+        }
+    }
+
+    LazyLoader {
+        active: AppLauncherService.open
+
+        component: AppLauncher {
+            targetScreen: AppLauncherService.targetScreen
+            onDismissed: AppLauncherService.close()
         }
     }
 
