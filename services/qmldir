@@ -3,6 +3,7 @@ singleton DockService 1.0 DockService.qml
 singleton ClockService 1.0 ClockService.qml
 singleton KeyboardService 1.0 KeyboardService.qml
 singleton AudioService 1.0 AudioService.qml
+singleton BrightnessService 1.0 BrightnessService.qml
 singleton WorkspaceService 1.0 WorkspaceService.qml
 singleton IpcService 1.0 IpcService.qml
 singleton OverviewService 1.0 OverviewService.qml

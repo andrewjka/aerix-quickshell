@@ -1,8 +1,8 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Qt5Compat.GraphicalEffects
 import Quickshell
+import "shared" as Shared
 import "../../core"
 import "../../services"
 
@@ -14,6 +14,8 @@ Item {
 
     property bool popupOpen: false
     readonly property bool canInteract: KeyboardService.available
+    readonly property real dpr: widget.barWindow?.devicePixelRatio ?? 1
+
     implicitWidth: content.width
     implicitHeight: content.height
     width: implicitWidth
@@ -45,9 +47,14 @@ Item {
 
     Item {
         id: content
-        anchors.centerIn: parent
-        implicitWidth: layoutLabel.implicitWidth + 4 + languageIcon.width
-        implicitHeight: Math.max(layoutLabel.implicitHeight, languageIcon.height)
+
+        // Целые размеры и позиция: дробные значения (ширина текста,
+        // centerIn при нечётной разнице) ставят содержимое на доли пикселя
+        // и дают мыло или «кривую» иконку.
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
+        implicitWidth: Math.ceil(layoutLabel.implicitWidth) + 4 + languageIcon.width
+        implicitHeight: Math.ceil(Math.max(layoutLabel.implicitHeight, languageIcon.height))
 
         Text {
             id: layoutLabel
@@ -65,22 +72,15 @@ Item {
             anchors.left: layoutLabel.right
             anchors.leftMargin: 4
             anchors.verticalCenter: parent.verticalCenter
-            width: Metrics.statusBarFontSize + 2
-            height: width
+            width: Metrics.statusBarWidgetIconSize
+            height: Metrics.statusBarWidgetIconSize
 
-            Image {
+            Shared.StatusBarIcon {
                 anchors.fill: parent
-                source: Qt.resolvedUrl("../../assets/icons/language.svg")
-                sourceSize.width: Math.ceil(width * widget.barWindow.devicePixelRatio)
-                sourceSize.height: Math.ceil(height * widget.barWindow.devicePixelRatio)
-                fillMode: Image.PreserveAspectFit
-                smooth: true
-                // Layer effect получает текстуру Image автоматически и
-                // перекрашивает нейтральный SVG в текущий цвет темы.
-                layer.enabled: true
-                layer.effect: ColorOverlay {
-                    color: layoutLabel.color
-                }
+                iconSource: Qt.resolvedUrl("../../assets/icons/language.svg")
+                tintColor: widget.canInteract ? Theme.foregroundColor
+                                              : Theme.disabledForegroundColor
+                devicePixelRatio: widget.dpr
             }
         }
     }

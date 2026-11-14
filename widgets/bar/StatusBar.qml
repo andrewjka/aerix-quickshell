@@ -34,6 +34,7 @@ PanelWindow {
             if (!OverviewService.open)
                 return;
             keyboardLayout.dismissPopup();
+            brightness.dismissPopup();
             volume.dismissPopup();
         }
     }
@@ -60,10 +61,11 @@ PanelWindow {
         // reverse-анимацию; click trigger забирает собственный MouseArea.
         MouseArea {
             anchors.fill: parent
-            enabled: keyboardLayout.popupOpen || volume.popupOpen
+            enabled: keyboardLayout.popupOpen || brightness.popupOpen || volume.popupOpen
             acceptedButtons: Qt.AllButtons
             onClicked: {
                 keyboardLayout.dismissPopup();
+                brightness.dismissPopup();
                 volume.dismissPopup();
             }
         }
@@ -87,11 +89,27 @@ PanelWindow {
         KeyboardLayoutWidget {
             id: keyboardLayout
             barWindow: statusBar
+            anchors.right: brightness.left
+            anchors.rightMargin: 2 * Metrics.spacing
+            anchors.verticalCenter: parent.verticalCenter
+            visible: surface.rightWidgetsFit
+            onPopupOpened: {
+                brightness.dismissPopup();
+                volume.dismissPopup();
+            }
+        }
+
+        BrightnessWidget {
+            id: brightness
+            barWindow: statusBar
             anchors.right: volume.left
             anchors.rightMargin: 2 * Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
             visible: surface.rightWidgetsFit
-            onPopupOpened: volume.dismissPopup()
+            onPopupOpened: {
+                keyboardLayout.dismissPopup();
+                volume.dismissPopup();
+            }
         }
 
         VolumeWidget {
@@ -101,7 +119,10 @@ PanelWindow {
             anchors.rightMargin: Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
             visible: surface.rightWidgetsFit
-            onPopupOpened: keyboardLayout.dismissPopup()
+            onPopupOpened: {
+                keyboardLayout.dismissPopup();
+                brightness.dismissPopup();
+            }
         }
 
         // Независимое центрирование оставляет часы в центре экрана, когда
@@ -112,7 +133,7 @@ PanelWindow {
         }
 
         readonly property int rightWidgetsWidth: keyboardLayout.implicitWidth
-            + volume.implicitWidth + 2 * Metrics.spacing
+            + brightness.implicitWidth + volume.implicitWidth + 4 * Metrics.spacing
         readonly property bool rightWidgetsFit: parent.width >= 2 * (
             Metrics.spacing + rightWidgetsWidth) + clock.implicitWidth
     }

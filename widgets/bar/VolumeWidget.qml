@@ -1,8 +1,8 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Qt5Compat.GraphicalEffects
 import Quickshell
+import "shared" as Shared
 import "../../core"
 import "../../services"
 
@@ -13,8 +13,8 @@ Item {
     required property var barWindow
     property bool popupOpen: false
     readonly property bool canInteract: AudioService.available
-    implicitWidth: volumeIcon.width
-    implicitHeight: volumeIcon.height
+    implicitWidth: Math.ceil(volumeIcon.width)
+    implicitHeight: Math.ceil(volumeIcon.height)
     width: implicitWidth
     height: implicitHeight
 
@@ -38,21 +38,15 @@ Item {
         popupOpen = true;
     }
 
-    Image {
+    Shared.StatusBarIcon {
         id: volumeIcon
         anchors.centerIn: parent
-        width: Metrics.statusBarFontSize + 2
-        height: width
-        source: Qt.resolvedUrl("../../assets/icons/" + AudioService.iconName)
-        sourceSize.width: Math.ceil(width * widget.barWindow.devicePixelRatio)
-        sourceSize.height: Math.ceil(height * widget.barWindow.devicePixelRatio)
-        fillMode: Image.PreserveAspectFit
-        smooth: true
-        layer.enabled: true
-        layer.effect: ColorOverlay {
-            color: widget.canInteract ? Theme.foregroundColor
-                                     : Theme.disabledForegroundColor
-        }
+        width: Metrics.statusBarWidgetIconSize
+        height: Metrics.statusBarWidgetIconSize
+        iconSource: Qt.resolvedUrl("../../assets/icons/" + AudioService.iconName)
+        tintColor: widget.canInteract ? Theme.foregroundColor
+                                      : Theme.disabledForegroundColor
+        devicePixelRatio: widget.barWindow?.devicePixelRatio ?? 1
     }
 
     MouseArea {

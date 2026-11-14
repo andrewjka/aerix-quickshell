@@ -2,10 +2,10 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import "shared" as Shared
 import "../../core"
 import "../../services"
 
@@ -160,21 +160,15 @@ PanelWindow {
                 width: parent.width - 2 * Metrics.spacing
                 height: popup.mixerHeight
 
-                Image {
+                Shared.StatusBarIcon {
                     id: volumeIcon
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     width: Metrics.statusBarFontSize + 6
                     height: width
-                    source: Qt.resolvedUrl("../../assets/icons/" + AudioService.iconName)
-                    sourceSize.width: Math.ceil(width * popup.barWindow.devicePixelRatio)
-                    sourceSize.height: Math.ceil(height * popup.barWindow.devicePixelRatio)
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    layer.enabled: true
-                    layer.effect: ColorOverlay {
-                        color: Theme.foregroundColor
-                    }
+                    iconSource: Qt.resolvedUrl("../../assets/icons/" + AudioService.iconName)
+                    tintColor: Theme.foregroundColor
+                    devicePixelRatio: popup.barWindow?.devicePixelRatio ?? 1
 
                     MouseArea {
                         anchors.fill: parent

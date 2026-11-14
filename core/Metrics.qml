@@ -31,6 +31,7 @@ QtObject {
     readonly property int statusBarHeight: 40
     readonly property int statusBarHorizontalMargin: spacing
     readonly property int statusBarFontSize: 16
+    readonly property int statusBarWidgetIconSize: 20
     readonly property int popupRowSpacing: 8
 
     // Геометрия лёгкого snapshot-превью окна.
