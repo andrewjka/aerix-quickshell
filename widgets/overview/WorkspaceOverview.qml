@@ -9,8 +9,8 @@ import Quickshell.Hyprland
 import "../../core"
 import "../../services"
 
-// Ленивая overlay-поверхность: живёт только пока открыт overview.
-PanelWindow {
+// Ленивая группа surface: живёт только пока открыт overview.
+Scope {
     id: overview
 
     required property var targetScreen
@@ -25,8 +25,7 @@ PanelWindow {
     property int dragSourceIndex: -1
     property Item dragVisual: null
     property Item hoveredWindow: null
-    // Ссылки нужны BackgroundEffect: region обновляется сразу после создания
-    // или уничтожения delegate, без геометрического bounding-box всей сетки.
+    // Ссылки нужны верхней surface, чтобы запросить blur ровно под карточками.
     property var cardItems: []
     property bool keyboardSelection: false
     property real reveal: 0
@@ -117,27 +116,34 @@ PanelWindow {
         }
     }
 
-    screen: targetScreen
-    anchors { top: true; bottom: true; left: true; right: true }
-    exclusionMode: ExclusionMode.Ignore
-    color: Theme.transparentColor
-    focusable: true
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "aerix:workspace-overview"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-    // Hyprland применяет blur только к десяти карточкам, а не к экранному
-    // backdrop. Region хранит объединение прямоугольников карточек.
-    BackgroundEffect.blurRegion: Region {
-        Region { item: overview.cardItems[0] ?? null; radius: Metrics.panelRadius }
-        Region { item: overview.cardItems[1] ?? null; radius: Metrics.panelRadius }
-        Region { item: overview.cardItems[2] ?? null; radius: Metrics.panelRadius }
-        Region { item: overview.cardItems[3] ?? null; radius: Metrics.panelRadius }
-        Region { item: overview.cardItems[4] ?? null; radius: Metrics.panelRadius }
-        Region { item: overview.cardItems[5] ?? null; radius: Metrics.panelRadius }
-        Region { item: overview.cardItems[6] ?? null; radius: Metrics.panelRadius }
-        Region { item: overview.cardItems[7] ?? null; radius: Metrics.panelRadius }
-        Region { item: overview.cardItems[8] ?? null; radius: Metrics.panelRadius }
-        Region { item: overview.cardItems[9] ?? null; radius: Metrics.panelRadius }
+    // Fullscreen overlay и карточки должны быть разными surface: HyprGlass
+    // применяет blur к фону каждой surface, но не может размыть два слоя
+    // одного буфера независимо. Общий namespace сохраняет правило preset.
+    PanelWindow {
+        id: backdropWindow
+
+        screen: overview.targetScreen
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusionMode: ExclusionMode.Ignore
+        color: Theme.transparentColor
+        focusable: false
+        // Backdrop должен быть ниже карточек независимо от порядка создания
+        // layer-surface у compositor. Карточки остаются на Overlay.
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "aerix:workspace-overview"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        BackgroundEffect.blurRegion: Region { item: backdropWindow.contentItem }
+
+        Rectangle {
+            anchors.fill: parent
+            color: Theme.overlayColor
+            opacity: Math.max(0, Math.min(1, overview.reveal))
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: overview.close()
+        }
     }
 
     // Закрывает overview и отменяет локальное ожидание смены workspace.
@@ -311,20 +317,39 @@ PanelWindow {
         }
     }
 
-    Rectangle {
-        id: backdrop
-        anchors.fill: parent
-        color: Theme.overlayColor
-        opacity: Math.max(0, Math.min(1, overview.reveal))
-    }
+    PanelWindow {
+        id: cardsWindow
 
-    MouseArea {
-        anchors.fill: parent
-        onClicked: overview.close()
-    }
+        screen: overview.targetScreen
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusionMode: ExclusionMode.Ignore
+        color: Theme.transparentColor
+        focusable: true
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "aerix:workspace-overview"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+        BackgroundEffect.blurRegion: Region {
+            Region { item: overview.cardItems[0] ?? null; radius: Metrics.panelRadius }
+            Region { item: overview.cardItems[1] ?? null; radius: Metrics.panelRadius }
+            Region { item: overview.cardItems[2] ?? null; radius: Metrics.panelRadius }
+            Region { item: overview.cardItems[3] ?? null; radius: Metrics.panelRadius }
+            Region { item: overview.cardItems[4] ?? null; radius: Metrics.panelRadius }
+            Region { item: overview.cardItems[5] ?? null; radius: Metrics.panelRadius }
+            Region { item: overview.cardItems[6] ?? null; radius: Metrics.panelRadius }
+            Region { item: overview.cardItems[7] ?? null; radius: Metrics.panelRadius }
+            Region { item: overview.cardItems[8] ?? null; radius: Metrics.panelRadius }
+            Region { item: overview.cardItems[9] ?? null; radius: Metrics.panelRadius }
+        }
 
-    FocusScope {
-        id: focusScope
+        // Surface принимает pointer во время всего drag. Обработчик лежит
+        // ниже FocusScope, поэтому получает только клик вне карточек.
+        MouseArea {
+            anchors.fill: parent
+            onClicked: overview.close()
+        }
+
+        FocusScope {
+            id: focusScope
         anchors.fill: parent
         focus: true
 
@@ -546,6 +571,7 @@ PanelWindow {
             }
         }
         Rectangle {
+            id: dragPreview
             visible: overview.draggingWindow
             x: overview.dragPosition.x + 16
             y: overview.dragPosition.y + 16
@@ -568,12 +594,14 @@ PanelWindow {
             }
         }
         Text {
+            id: operationLabel
             anchors.bottom: parent.bottom
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottomMargin: Metrics.spacing * 3
             text: WorkspaceService.busy ? I18n.tr("overview.moving")
                                         : I18n.tr(WorkspaceService.operationErrorKey)
             color: WorkspaceService.operationErrorKey ? Theme.accentColor : Theme.foregroundColor
+        }
         }
     }
 }
