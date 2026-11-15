@@ -35,7 +35,7 @@ PanelWindow {
     // transformOrigin снизу: spring растит preview в стороны и вверх.
     // Внешняя layer-surface оставляет запас ровно под максимальный overshoot.
     readonly property real springScaleOverflow: Math.max(0,
-        Motion.spring.maximumScale - 1)
+        Metrics.spring.maximumScale - 1)
     readonly property int horizontalRenderMargin: Math.ceil(
         surfaceWidth * springScaleOverflow / 2) + 1
     readonly property int topRenderMargin: Math.ceil(
@@ -173,19 +173,19 @@ PanelWindow {
     ParallelAnimation {
         id: revealAnimation
 
-        Motion.ProfileAnimation {
+        Metrics.ProfileAnimation {
             target: previewFrame
             property: "scale"
             from: 0.12
             to: 1
-            duration: Motion.durationMs
+            duration: Metrics.durationMs
         }
-        Motion.ProfileAnimation {
+        Metrics.ProfileAnimation {
             target: previewFrame
             property: "opacity"
             from: 0
             to: 1
-            duration: Motion.durationMs
+            duration: Metrics.durationMs
         }
     }
 

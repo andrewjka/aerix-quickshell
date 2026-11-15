@@ -27,8 +27,8 @@ PanelWindow {
 
     readonly property real openY: height - Metrics.panelHeight - Metrics.bottomMargin
     readonly property bool interactionEnabled: isOpen && Math.abs(panelSurface.y - openY) < 0.5
-    readonly property real revealScale: Motion.spring.startScale
-        + (1 - Motion.spring.startScale) * reveal
+    readonly property real revealScale: Metrics.spring.startScale
+        + (1 - Metrics.spring.startScale) * reveal
     readonly property real revealOpacity: Math.max(0, Math.min(1, reveal))
 
     DockLayout {
@@ -131,9 +131,9 @@ PanelWindow {
 
     Behavior on reveal {
         NumberAnimation {
-            duration: Motion.spring.durationMs
-            easing.type: Motion.spring.easingType
-            easing.bezierCurve: Motion.spring.bezierCurve
+            duration: Metrics.spring.durationMs
+            easing.type: Metrics.spring.easingType
+            easing.bezierCurve: Metrics.spring.bezierCurve
         }
     }
 
@@ -141,7 +141,7 @@ PanelWindow {
 
     Timer {
         id: closeDelay
-        interval: Motion.dockCloseDelayMs
+        interval: Metrics.dockCloseDelayMs
         onTriggered: {
             if (!panelHover.hovered)
                 panel.closePanel();
@@ -188,7 +188,7 @@ PanelWindow {
         opacity: panel.revealOpacity
         transformOrigin: Item.Bottom
         Behavior on width {
-            Motion.ProfileAnimation {}
+            Metrics.ProfileAnimation {}
         }
     }
 

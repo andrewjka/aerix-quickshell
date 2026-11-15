@@ -302,9 +302,9 @@ Scope {
         property: "reveal"
         from: 0
         to: 1
-        duration: Motion.spring.durationMs
-        easing.type: Motion.spring.easingType
-        easing.bezierCurve: Motion.spring.bezierCurve
+        duration: Metrics.spring.durationMs
+        easing.type: Metrics.spring.easingType
+        easing.bezierCurve: Metrics.spring.bezierCurve
     }
 
     Connections {
@@ -387,8 +387,8 @@ Scope {
                 + overview.cardHeaderHeight + overview.cardFooterHeight)
                 + (overview.rows - 1) * Metrics.spacing
             transformOrigin: Item.Center
-            scale: Motion.spring.startScale
-                + (1 - Motion.spring.startScale) * overview.reveal
+            scale: Metrics.spring.startScale
+                + (1 - Metrics.spring.startScale) * overview.reveal
             opacity: Math.max(0, Math.min(1, overview.reveal))
 
             Grid {

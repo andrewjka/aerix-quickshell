@@ -275,7 +275,7 @@ Scope {
 
     Timer {
         id: landingTimer
-        interval: Motion.spring.durationMs
+        interval: Metrics.spring.durationMs
         onTriggered: launcher.landingItemKey = ""
     }
 
@@ -307,9 +307,9 @@ Scope {
         property: "reveal"
         from: 0
         to: 1
-        duration: Motion.spring.durationMs
-        easing.type: Motion.spring.easingType
-        easing.bezierCurve: Motion.spring.bezierCurve
+        duration: Metrics.spring.durationMs
+        easing.type: Metrics.spring.easingType
+        easing.bezierCurve: Metrics.spring.bezierCurve
     }
 
     PanelWindow {
@@ -372,8 +372,8 @@ Scope {
                 id: launcherLayout
                 readonly property real searchHeight: 44
                 anchors.fill: parent
-                scale: Motion.spring.startScale
-                    + (1 - Motion.spring.startScale) * launcher.reveal
+                scale: Metrics.spring.startScale
+                    + (1 - Metrics.spring.startScale) * launcher.reveal
                 opacity: Math.max(0, Math.min(1, launcher.reveal))
 
                 Rectangle {
@@ -566,7 +566,7 @@ Scope {
                         id: wheelReturn
                         target: appGrid
                         property: "contentY"
-                        duration: Motion.quickDurationMs
+                        duration: Metrics.quickDurationMs
                         easing.type: Easing.OutCubic
                     }
 
@@ -582,7 +582,7 @@ Scope {
                     rebound: Transition {
                         NumberAnimation {
                             properties: "x,y"
-                            duration: Motion.quickDurationMs
+                            duration: Metrics.quickDurationMs
                             easing.type: Easing.OutCubic
                         }
                     }
@@ -650,8 +650,8 @@ Scope {
                                 - (appTile.index % Metrics.appLauncherColumns)) * appGrid.cellWidth
                             y: (Math.floor(appTile.visualIndex / Metrics.appLauncherColumns)
                                 - Math.floor(appTile.index / Metrics.appLauncherColumns)) * appGrid.cellHeight
-                            Behavior on x { Motion.ProfileAnimation {} }
-                            Behavior on y { Motion.ProfileAnimation {} }
+                            Behavior on x { Metrics.ProfileAnimation {} }
+                            Behavior on y { Metrics.ProfileAnimation {} }
                         }
                         readonly property bool isLanding:
                             launcher.landingItemKey === launcherItem.key
@@ -660,10 +660,10 @@ Scope {
                         property int seenSearchRevealGeneration: -1
                         property real landingProgress: 1
                         property real searchRevealProgress: 1
-                        scale: (Motion.spring.startScale + (1
-                            - Motion.spring.startScale) * landingProgress)
-                            * (Motion.spring.startScale + (1
-                                - Motion.spring.startScale) * searchRevealProgress)
+                        scale: (Metrics.spring.startScale + (1
+                            - Metrics.spring.startScale) * landingProgress)
+                            * (Metrics.spring.startScale + (1
+                                - Metrics.spring.startScale) * searchRevealProgress)
                         opacity: searchRevealProgress
                         transformOrigin: Item.Center
 
@@ -698,9 +698,9 @@ Scope {
                             target: appTile
                             property: "landingProgress"
                             to: 1
-                            duration: Motion.spring.durationMs
-                            easing.type: Motion.spring.easingType
-                            easing.bezierCurve: Motion.spring.bezierCurve
+                            duration: Metrics.spring.durationMs
+                            easing.type: Metrics.spring.easingType
+                            easing.bezierCurve: Metrics.spring.bezierCurve
                         }
 
                         Timer {
@@ -717,9 +717,9 @@ Scope {
                             target: appTile
                             property: "searchRevealProgress"
                             to: 1
-                            duration: Motion.spring.durationMs
-                            easing.type: Motion.spring.easingType
-                            easing.bezierCurve: Motion.spring.bezierCurve
+                            duration: Metrics.spring.durationMs
+                            easing.type: Metrics.spring.easingType
+                            easing.bezierCurve: Metrics.spring.bezierCurve
                         }
 
                         Item {
@@ -837,7 +837,7 @@ Scope {
                             opacity: appIcon.opacity * (appTile.isLanding ? 0 : 1)
 
                             Behavior on opacity {
-                                NumberAnimation { duration: Motion.quickDurationMs }
+                                NumberAnimation { duration: Metrics.quickDurationMs }
                             }
                         }
 

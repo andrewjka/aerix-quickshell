@@ -32,8 +32,8 @@ Item {
     x: baseX + hoverOffset
 
     Behavior on hoverOffset {
-        Motion.ProfileAnimation {
-            duration: Motion.durationMs
+        Metrics.ProfileAnimation {
+            duration: Metrics.durationMs
         }
     }
 
@@ -49,12 +49,12 @@ Item {
         transformOrigin: Item.Center
 
         Behavior on scale {
-            Motion.ProfileAnimation {}
+            Metrics.ProfileAnimation {}
         }
 
         Behavior on y {
-            Motion.ProfileAnimation {
-                duration: Motion.durationMs
+            Metrics.ProfileAnimation {
+                duration: Metrics.durationMs
             }
         }
 

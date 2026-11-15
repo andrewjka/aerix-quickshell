@@ -23,9 +23,9 @@ PanelWindow {
     readonly property int sectionLabelHeight: 16
     readonly property int revealTravel: 24
     readonly property real springScaleOverflow: Math.max(0,
-        Motion.spring.maximumScale - 1)
+        Metrics.spring.maximumScale - 1)
     readonly property real springProgressOverflow: Math.max(0,
-        Motion.spring.maximumProgress - 1)
+        Metrics.spring.maximumProgress - 1)
     readonly property int shadowMargin: Math.ceil(Metrics.panelShadowRadius) + 1
     readonly property int topRenderMargin: shadowMargin + revealTravel
     readonly property int bottomSpringOverflow: Math.ceil(
@@ -74,9 +74,9 @@ PanelWindow {
 
     Behavior on reveal {
         NumberAnimation {
-            duration: Motion.spring.durationMs
-            easing.type: Motion.spring.easingType
-            easing.bezierCurve: Motion.spring.bezierCurve
+            duration: Metrics.spring.durationMs
+            easing.type: Metrics.spring.easingType
+            easing.bezierCurve: Metrics.spring.bezierCurve
             onRunningChanged: {
                 if (!running && !popup.expanded && popup.reveal === 0)
                     popup.dismissed();
@@ -140,8 +140,8 @@ PanelWindow {
         border.width: 1
         border.color: Theme.borderColor
         antialiasing: true
-        scale: Motion.spring.startScale
-            + (1 - Motion.spring.startScale) * popup.reveal
+        scale: Metrics.spring.startScale
+            + (1 - Metrics.spring.startScale) * popup.reveal
         transformOrigin: Item.Top
         opacity: Math.max(0, Math.min(1, popup.reveal))
 
@@ -314,7 +314,7 @@ PanelWindow {
                         transitions: Transition {
                             NumberAnimation {
                                 property: "opacity"
-                                duration: Motion.quickDurationMs
+                                duration: Metrics.quickDurationMs
                                 easing.type: Easing.Linear
                             }
                         }
@@ -333,8 +333,8 @@ PanelWindow {
                         antialiasing: true
 
                         Behavior on opacity {
-                            Motion.ProfileAnimation {
-                                duration: Motion.quickDurationMs
+                            Metrics.ProfileAnimation {
+                                duration: Metrics.quickDurationMs
                             }
                         }
                     }

@@ -66,37 +66,37 @@ Rectangle {
         id: workspaceTransition
 
         ParallelAnimation {
-            Motion.ProfileAnimation {
+            Metrics.ProfileAnimation {
                 target: indicator
                 property: "verticalExpansion"
                 // Без from анимация продолжает текущую высоту после
                 // прерывания, вместо мгновенного возврата к нулю.
                 to: 20
-                duration: Motion.durationMs
+                duration: Metrics.durationMs
             }
-            Motion.ProfileAnimation {
+            Metrics.ProfileAnimation {
                 target: indicator
                 property: "slideProgress"
                 from: 0
                 to: 1
-                duration: Motion.durationMs
+                duration: Metrics.durationMs
             }
         }
-        Motion.ProfileAnimation {
+        Metrics.ProfileAnimation {
             target: indicator
             property: "verticalExpansion"
             to: 0
-            duration: Motion.durationMs
+            duration: Metrics.durationMs
         }
     }
 
     // Синус превращает один прогресс в движение к краю и обратно.
-    Motion.ProfileAnimation {
+    Metrics.ProfileAnimation {
         id: nudgeAnimation
         target: indicator
         property: "nudgeProgress"
         from: 0
         to: 1
-        duration: Motion.durationMs
+        duration: Metrics.durationMs
     }
 }

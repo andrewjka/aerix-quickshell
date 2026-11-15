@@ -96,7 +96,7 @@ PanelWindow {
 
     Timer {
         id: landingTimer
-        interval: Motion.spring.durationMs
+        interval: Metrics.spring.durationMs
         onTriggered: folderWindow.landingKey = ""
     }
 
@@ -120,9 +120,9 @@ PanelWindow {
 
     Behavior on reveal {
         NumberAnimation {
-            duration: Motion.spring.durationMs
-            easing.type: Motion.spring.easingType
-            easing.bezierCurve: Motion.spring.bezierCurve
+            duration: Metrics.spring.durationMs
+            easing.type: Metrics.spring.easingType
+            easing.bezierCurve: Metrics.spring.bezierCurve
         }
     }
 
@@ -183,8 +183,8 @@ PanelWindow {
         border.width: 1
         border.color: Theme.borderColor
         z: 2
-        scale: Motion.spring.startScale
-            + (1 - Motion.spring.startScale) * folderWindow.reveal
+        scale: Metrics.spring.startScale
+            + (1 - Metrics.spring.startScale) * folderWindow.reveal
         transformOrigin: Item.Center
 
         GridView {
@@ -216,8 +216,8 @@ PanelWindow {
                     folderWindow.landingKey === modelData.key
                 property real landingProgress: 1
                 readonly property int previewIndex: folderWindow.visualIndex(index)
-                scale: Motion.spring.startScale + (1
-                    - Motion.spring.startScale) * landingProgress
+                scale: Metrics.spring.startScale + (1
+                    - Metrics.spring.startScale) * landingProgress
                 transformOrigin: Item.Center
                 onIsLandingChanged: {
                     if (isLanding) {
@@ -228,8 +228,8 @@ PanelWindow {
                 transform: Translate {
                     x: ((folderTile.previewIndex % 4) - (folderTile.index % 4)) * folderGrid.cellWidth
                     y: (Math.floor(folderTile.previewIndex / 4) - Math.floor(folderTile.index / 4)) * folderGrid.cellHeight
-                    Behavior on x { Motion.ProfileAnimation {} }
-                    Behavior on y { Motion.ProfileAnimation {} }
+                    Behavior on x { Metrics.ProfileAnimation {} }
+                    Behavior on y { Metrics.ProfileAnimation {} }
                 }
                 readonly property string iconName: String(modelData?.entry?.icon ?? "")
                 readonly property string iconSource: iconName.startsWith("/")
@@ -259,9 +259,9 @@ PanelWindow {
                     target: folderTile
                     property: "landingProgress"
                     to: 1
-                    duration: Motion.spring.durationMs
-                    easing.type: Motion.spring.easingType
-                    easing.bezierCurve: Motion.spring.bezierCurve
+                    duration: Metrics.spring.durationMs
+                    easing.type: Metrics.spring.easingType
+                    easing.bezierCurve: Metrics.spring.bezierCurve
                 }
 
                 Text {
@@ -276,7 +276,7 @@ PanelWindow {
                     horizontalAlignment: Text.AlignHCenter
                     elide: Text.ElideRight
                     opacity: appIcon.opacity * (folderTile.isLanding ? 0 : 1)
-                    Behavior on opacity { NumberAnimation { duration: Motion.quickDurationMs } }
+                    Behavior on opacity { NumberAnimation { duration: Metrics.quickDurationMs } }
                 }
 
                 LauncherDragSurface {

@@ -104,19 +104,19 @@ Item {
     height: Metrics.groupHeight
 
     Behavior on workspacePadding {
-        Motion.ProfileAnimation {}
+        Metrics.ProfileAnimation {}
     }
     Behavior on leftWorkspaceGap {
-        Motion.ProfileAnimation {}
+        Metrics.ProfileAnimation {}
     }
     Behavior on rightWorkspaceGap {
-        Motion.ProfileAnimation {}
+        Metrics.ProfileAnimation {}
     }
     Behavior on leftHoverExpansion {
-        Motion.ProfileAnimation { duration: Motion.durationMs }
+        Metrics.ProfileAnimation { duration: Metrics.durationMs }
     }
     Behavior on rightHoverExpansion {
-        Motion.ProfileAnimation { duration: Motion.durationMs }
+        Metrics.ProfileAnimation { duration: Metrics.durationMs }
     }
 
     Repeater {

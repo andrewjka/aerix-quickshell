@@ -93,7 +93,7 @@ PanelWindow {
             anchors.left: brandLogo.right
             anchors.leftMargin: Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
-            text: "app"
+            text: "apps"
             color: Theme.foregroundColor
             font.pixelSize: Metrics.statusBarFontSize
             font.weight: Font.Medium
