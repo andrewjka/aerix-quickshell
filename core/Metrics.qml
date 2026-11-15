@@ -5,6 +5,7 @@ import QtQml
 QtObject {
     // Базовая сетка интерфейса.
     readonly property int spacing: 10
+    readonly property int baseFontSize: 16
 
     // Скругление и тень общих поверхностей Dock и status bar.
     readonly property real panelRadius: 8
@@ -39,11 +40,28 @@ QtObject {
     readonly property int statusBarHeight: 40
     readonly property int statusBarHorizontalMargin: spacing
     readonly property int statusBarWidgetSpacing: spacing
-    readonly property int statusBarFontSize: 16
+    readonly property int statusBarFontSize: baseFontSize
     readonly property int statusBarWidgetIconSize: 20
 
     // Списки в popup status bar.
     readonly property int popupRowSpacing: 8
+
+    // Сетка приложений в AppLauncher.
+    readonly property int appLauncherColumns: 6
+    readonly property int appLauncherVisibleRows: 5
+    readonly property int appLauncherPadding: spacing * 4
+    readonly property int appLauncherIconSize: 64
+    readonly property int appLauncherIconSafeZone: spacing
+    readonly property int appLauncherFontSize: 14
+    // Размер редактируемого имени открытой папки.
+    readonly property int appLauncherFolderTitleFontSize: baseFontSize
+    readonly property real appLauncherScrollFadeStrength: 0.64
+    readonly property int appLauncherScrollFadeRadius: 48
+    // Множитель скорости wheel и число строк в секунду для автопрокрутки drag.
+    readonly property real appLauncherWheelScrollRows: 2
+    readonly property real appLauncherDragAutoScrollRowsPerSecond: 6
+    // Максимальный выезд колесом за границу списка, в логических пикселях.
+    readonly property int appLauncherOverscrollDistance: 128
 
     // Геометрия лёгкого snapshot-превью окна.
     readonly property int previewWidth: 440
