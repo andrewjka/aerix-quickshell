@@ -54,6 +54,8 @@ PanelWindow {
         bottomLeftRadius: Metrics.panelRadius
         bottomRightRadius: Metrics.panelRadius
         color: Theme.backgroundColor
+        border.width: 1
+        border.color: Theme.borderColor
         antialiasing: true
 
         // Этот обработчик находится ниже интерактивных виджетов. Пока popup

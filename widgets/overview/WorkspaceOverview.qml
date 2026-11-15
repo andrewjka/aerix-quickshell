@@ -415,14 +415,10 @@ Scope {
                             / overview.rows
                         radius: Metrics.panelRadius
                         color: Theme.backgroundColor
-                        border.width: modelData.isActive
-                            || overview.dragTargetIndex === index
-                            || (!overview.draggingWindow && !overview.hoveredWindow
-                                && (cardHover.hovered || (overview.keyboardSelection
-                                    && overview.selectionIndex === index))) ? 2 : 1
-                        // Только активный workspace использует базовый border
-                        // без alpha; hover и drag сохраняют общую прозрачность.
-                        border.color: modelData.isActive
+                        border.width: 1
+                        // Наведение получает ту же контрастную рамку, что и
+                        // активный workspace.
+                        border.color: modelData.isActive || cardHover.hovered
                             ? Theme.withOpacity("border", 1)
                             : Theme.borderColor
                         opacity: overview.pendingWorkspaceId >= 0

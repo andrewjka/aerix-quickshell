@@ -182,6 +182,8 @@ PanelWindow {
         height: Metrics.panelHeight
         radius: Metrics.panelRadius
         color: Theme.backgroundColor
+        border.width: 1
+        border.color: Theme.borderColor
         scale: panel.revealScale
         opacity: panel.revealOpacity
         transformOrigin: Item.Bottom

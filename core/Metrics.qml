@@ -47,14 +47,15 @@ QtObject {
     readonly property int popupRowSpacing: 8
 
     // Сетка приложений в AppLauncher.
-    readonly property int appLauncherColumns: 6
-    readonly property int appLauncherVisibleRows: 5
-    readonly property int appLauncherPadding: spacing * 4
+    readonly property int appLauncherColumns: 8
+    readonly property int appLauncherVisibleRows: 4
     readonly property int appLauncherIconSize: 64
     readonly property int appLauncherIconSafeZone: spacing
     readonly property int appLauncherFontSize: 14
+    // Интервал запуска соседних spring-анимаций в поисковой выдаче.
+    readonly property int appLauncherSearchCascadeDelayMs: 32
     // Размер редактируемого имени открытой папки.
-    readonly property int appLauncherFolderTitleFontSize: baseFontSize
+    readonly property int appLauncherFolderTitleFontSize: baseFontSize + 2
     readonly property real appLauncherScrollFadeStrength: 0.64
     readonly property int appLauncherScrollFadeRadius: 48
     // Множитель скорости wheel и число строк в секунду для автопрокрутки drag.

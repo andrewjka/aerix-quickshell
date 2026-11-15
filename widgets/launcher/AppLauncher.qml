@@ -27,6 +27,8 @@ Scope {
     property int dragInsertionIndex: -1
     property var dragIconTarget: null
     property string landingItemKey: ""
+    property int searchRevealGeneration: 0
+    property int searchResetGeneration: 0
 
     signal dismissed()
 
@@ -56,12 +58,30 @@ Scope {
             itemName(item).toLocaleLowerCase().includes(query));
     }
 
-    function refreshGridItems(preserveScroll) {
+    function refreshGridItems(preserveScroll, clearBeforeUpdate) {
         if (draggingIcon)
             return;
         if (preserveScroll && appGrid)
             appGrid.restoreY = appGrid.contentY;
-        gridItems = filteredItems(AppLauncherService.presentationItems(""));
+        const nextItems = filteredItems(AppLauncherService.presentationItems(""));
+        if (clearBeforeUpdate) {
+            const request = ++searchResetGeneration;
+            gridItems = [];
+            gridModel.clear();
+            rebuildDisplayGridItems();
+            Qt.callLater(() => {
+      if (request !== searchResetGeneration || launcher.draggingIcon)
+                    return;
+                gridItems = nextItems;
+                searchRevealGeneration += 1;
+                updateGridModel(gridItems);
+                rebuildDisplayGridItems();
+                appGrid.contentY = appGrid.minimumY;
+                appGrid.returnToBounds();
+            });
+            return;
+        }
+        gridItems = nextItems;
         updateGridModel(gridItems);
         rebuildDisplayGridItems();
         if (preserveScroll && appGrid)
@@ -93,7 +113,8 @@ Scope {
     }
 
     function refreshFolderItems() {
-        folderGridItems = AppLauncherService.presentationItems(openFolderId);
+        folderGridItems = openFolderId
+            ? AppLauncherService.presentationItems(openFolderId) : [];
     }
 
     // Preview описывает пустой слот и позиции соседей, но не заменяет модель
@@ -231,7 +252,8 @@ Scope {
     }
 
     Timer {
-        // Работает только при переносе над зонами затемнения.
+        // Прокручивает сетку, когда перенос находится у её верхнего или
+        // нижнего края.
         interval: 16
         repeat: true
         running: launcher.draggingIcon
@@ -274,7 +296,7 @@ Scope {
     }
 
     onSearchQueryChanged: {
-        refreshGridItems();
+        refreshGridItems(false, true);
         refreshFolderItems();
     }
     onOpenFolderIdChanged: refreshFolderItems()
@@ -299,7 +321,7 @@ Scope {
         color: Theme.transparentColor
         focusable: false
         WlrLayershell.layer: WlrLayer.Top
-        WlrLayershell.namespace: "aerix:app-launcher"
+        WlrLayershell.namespace: "aerix:app-launcher-backdrop"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         BackgroundEffect.blurRegion: Region { item: backdropWindow.contentItem }
 
@@ -319,7 +341,9 @@ Scope {
         color: Theme.transparentColor
         focusable: true
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.namespace: "aerix:app-launcher"
+        // Полноэкранный organizer: отдельный namespace позволяет задать ему
+        // собственное правило blur в compositor-е.
+        WlrLayershell.namespace: "aerix:app-launcher-organizer"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
         BackgroundEffect.blurRegion: Region {
             Region { item: searchSurface; radius: Metrics.panelRadius }
@@ -346,9 +370,8 @@ Scope {
 
             Item {
                 id: launcherLayout
-                anchors.centerIn: parent
-                width: parent.width / 2
-                height: parent.height * 0.7
+                readonly property real searchHeight: 44
+                anchors.fill: parent
                 scale: Motion.spring.startScale
                     + (1 - Motion.spring.startScale) * launcher.reveal
                 opacity: Math.max(0, Math.min(1, launcher.reveal))
@@ -356,8 +379,9 @@ Scope {
                 Rectangle {
                     id: searchSurface
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: parent.width / 2
-                    height: 44
+                    y: parent.height * 0.12
+                    width: Math.min(parent.width * 0.4, 520)
+                    height: launcherLayout.searchHeight
                     radius: Metrics.panelRadius
                     color: Theme.backgroundColor
                     border.width: 1
@@ -400,6 +424,11 @@ Scope {
                         font.pixelSize: Metrics.statusBarFontSize
                         clip: true
                         selectByMouse: true
+
+                        HoverHandler {
+                            cursorShape: Qt.IBeamCursor
+                        }
+
                         onTextChanged: launcher.searchQuery = text
 
                         Text {
@@ -413,42 +442,49 @@ Scope {
                     }
                 }
 
-                Rectangle {
+                // Grid живёт непосредственно на fullscreen overlay. Item
+                // оставлен только как неотрисовываемая геометрическая область.
+                Item {
                     id: appsSurface
-                    anchors.top: searchSurface.bottom
-                    anchors.topMargin: 2 * Metrics.spacing
-                    width: parent.width
-                    height: parent.height - searchSurface.height
-                        - 2 * Metrics.spacing
-                    radius: Metrics.panelRadius
-                    color: Theme.backgroundColor
-                    border.width: 1
-                    border.color: Theme.borderColor
+                    anchors.fill: parent
                     clip: true
-                    // clip режет только прямоугольником. Маска ниже вырезает
-                    // из слоя сетку и градиенты по скруглению самой панели.
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        maskEnabled: true
-                        maskSource: appsMask
-                        maskThresholdMin: 0.5
-                        maskSpreadAtMin: 1.0
-                    }
 
                 GridView {
                     id: appGrid
-                    anchors.fill: parent
-                    // Viewport совпадает с панелью: элементы уходят за её
-                    // край. Margins задают стартовое положение сетки.
-                    leftMargin: Metrics.appLauncherPadding
-                    rightMargin: Metrics.appLauncherPadding
-                    topMargin: Metrics.appLauncherPadding
-                    bottomMargin: Metrics.appLauncherPadding
+                    // Один шаг сетки задаёт расстояние между краями иконок по
+                    // обеим осям. Подпись занимает нижнюю часть этого зазора.
+                    readonly property real iconSize: Math.max(1, Math.min(
+                        Metrics.appLauncherIconSize,
+                        appsSurface.width / Metrics.appLauncherColumns))
+                    readonly property real tileHeight: iconSize + 4 + labelMetrics.height
+                    readonly property real viewportWidth: Math.min(
+                        appsSurface.width * 0.68, 1100)
+                    readonly property real viewportHeight: Math.min(
+                        appsSurface.height * 0.62, 640)
+                    readonly property real minimumGridY: searchSurface.y
+                        + searchSurface.height + 2 * Metrics.spacing
+                    readonly property real gridGap: Math.max(tileHeight - iconSize,
+                        Math.min(
+                            (viewportWidth - Metrics.appLauncherColumns * iconSize)
+                                / Math.max(1, Metrics.appLauncherColumns - 1),
+                            (viewportHeight - tileHeight
+                                - (Metrics.appLauncherVisibleRows - 1) * iconSize)
+                                / Math.max(1, Metrics.appLauncherVisibleRows - 1)))
+                    x: (appsSurface.width - width) / 2
+                    y: Math.max(minimumGridY,
+                        (appsSurface.height - viewportHeight) / 2)
+                    width: (iconSize + gridGap) * Metrics.appLauncherColumns
+                    height: viewportHeight
+                    topMargin: 0
+                    bottomMargin: 0
                     clip: true
-                    cellWidth: (width - 2 * Metrics.appLauncherPadding)
-                        / Metrics.appLauncherColumns
-                    cellHeight: (height - 2 * Metrics.appLauncherPadding)
-                        / Metrics.appLauncherVisibleRows
+                    cellWidth: iconSize + gridGap
+                    cellHeight: iconSize + gridGap
+
+                    FontMetrics {
+                        id: labelMetrics
+                        font.pixelSize: Metrics.appLauncherFontSize
+                    }
                     model: launcher.gridModel
                     interactive: !launcher.draggingIcon
                     // Удерживаем источник mouse grab при уходе за viewport.
@@ -551,6 +587,7 @@ Scope {
                         }
                     }
                     ScrollBar.vertical: ScrollBar {
+                        id: appGridScrollBar
                         onPressedChanged: {
                             if (pressed) {
                                 wheelIdle.stop();
@@ -561,9 +598,9 @@ Scope {
                         }
                         // Полоса остаётся в правом padding и не сужает сетку.
                         parent: appsSurface
-                        x: appsSurface.width - Metrics.appLauncherPadding - width
-                        y: (appsSurface.height - height) / 2
-                        height: appsSurface.height * 2 / 3
+                        x: appGrid.x + appGrid.width - width / 2
+                        y: appGrid.y + (appGrid.height - height) / 2
+                        height: appGrid.height * 2 / 3
                         width: 5
                         z: 2
                         policy: ScrollBar.AlwaysOn
@@ -602,7 +639,7 @@ Scope {
                             + Metrics.appLauncherIconSafeZone
                         readonly property bool isDragSource: launcher.draggingIcon
                             && launcher.draggedItem?.key === launcherItem.key
-                        readonly property int visualIndex: isDragSource ? index
+                        readonly property int visualIndex: !launcher.draggingIcon || isDragSource ? index
                             : Math.max(0, launcher.displayGridItems.findIndex(
                                 item => item.key === appTile.launcherItem.key))
                         // Модель и MouseArea живут до release. Смещение только
@@ -618,10 +655,29 @@ Scope {
                         }
                         readonly property bool isLanding:
                             launcher.landingItemKey === launcherItem.key
+                        readonly property int searchRevealGeneration:
+                            launcher.searchRevealGeneration
+                        property int seenSearchRevealGeneration: -1
                         property real landingProgress: 1
-                        scale: Motion.spring.startScale + (1
-                            - Motion.spring.startScale) * landingProgress
+                        property real searchRevealProgress: 1
+                        scale: (Motion.spring.startScale + (1
+                            - Motion.spring.startScale) * landingProgress)
+                            * (Motion.spring.startScale + (1
+                                - Motion.spring.startScale) * searchRevealProgress)
+                        opacity: searchRevealProgress
                         transformOrigin: Item.Center
+
+                        function startSearchReveal() {
+                            if (launcher.searchRevealGeneration === 0
+                                || seenSearchRevealGeneration
+                                    === launcher.searchRevealGeneration)
+                                return;
+                            seenSearchRevealGeneration = launcher.searchRevealGeneration;
+                            searchRevealProgress = 0;
+                            searchRevealDelay.restart();
+                        }
+
+                        onSearchRevealGenerationChanged: startSearchReveal()
 
                         onIsLandingChanged: {
                             if (isLanding) {
@@ -630,6 +686,7 @@ Scope {
                             }
                         }
                         Component.onCompleted: {
+                            startSearchReveal();
                             if (isLanding) {
                                 landingProgress = 0;
                                 landingAnimation.restart();
@@ -646,17 +703,36 @@ Scope {
                             easing.bezierCurve: Motion.spring.bezierCurve
                         }
 
+                        Timer {
+                            id: searchRevealDelay
+                            // Следующая плитка стартует до завершения spring
+                            // предыдущей, создавая непрерывный каскад.
+                            interval: appTile.index
+                                * Metrics.appLauncherSearchCascadeDelayMs
+                            onTriggered: searchRevealAnimation.restart()
+                        }
+
+                        NumberAnimation {
+                            id: searchRevealAnimation
+                            target: appTile
+                            property: "searchRevealProgress"
+                            to: 1
+                            duration: Motion.spring.durationMs
+                            easing.type: Motion.spring.easingType
+                            easing.bezierCurve: Motion.spring.bezierCurve
+                        }
+
                         Item {
                             id: appIcon
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.top: parent.top
-                            width: Math.min(Metrics.appLauncherIconSize,
-                                parent.width, parent.height)
+                            width: appGrid.iconSize
                             height: width
                             opacity: appTile.isDragSource ? 0 : 1
 
                             Image {
                                 anchors.fill: parent
+                                asynchronous: true
                                 visible: appTile.launcherItem.type === "application"
                                 source: appTile.iconSource
                                 sourceSize: Qt.size(Math.ceil(width
@@ -671,7 +747,8 @@ Scope {
                             Rectangle {
                                 id: folderIcon
                                 anchors.fill: parent
-                                opacity: launcher.openFolderId || appTile.isDragSource ? 1 : 0
+                                opacity: launcher.openFolderId || appTile.isDragSource
+                                    ? 1 : 0
                                 visible: appTile.launcherItem.type === "folder"
                                 radius: Metrics.panelRadius
                                 color: Theme.backgroundColor
@@ -683,23 +760,23 @@ Scope {
                                     sourceComponent: Component {
                                         FolderIconSurface {
                                             targetScreen: launcher.targetScreen
-                                            // При drag surface следует за отдельным preview,
-                                            // а не остаётся на исходной позиции в сетке.
-                                            sourceItem: appTile.isDragSource
-                                                ? dragPreview : folderIcon
+                                            sourceItem: folderIcon
                                             referenceItem: launcherFocus
-                                            viewport: appTile.isDragSource
-                                                ? launcherFocus : appsSurface
+                                            viewport: appGrid
                                             entries: appTile.launcherItem.previewEntries ?? []
+                                            // Surface исходной папки скрывается:
+                                            // её preview отрисует верхнее окно drag.
                                             active: !launcher.openFolderId
+                                                && (!launcher.draggingIcon
+                                                    || !appTile.isDragSource)
                                             contentOpacity: launcherLayout.opacity
                                             geometryRevision: [appGrid.contentY,
                                                 appGrid.contentX, appTile.x, appTile.y,
                                                 appTile.scale, tileTranslation.x,
                                                 tileTranslation.y, launcherLayout.scale,
                                                 launcherLayout.x, launcherLayout.y,
-                                                appsSurface.width, appsSurface.height,
-                                                appsSurface.y, appIcon.width, appIcon.x,
+                                                appGrid.x, appGrid.y, appGrid.width,
+                                                appGrid.height, appIcon.width, appIcon.x,
                                                 dragPreview.x, dragPreview.y,
                                                 dragPreview.width, dragPreview.height]
                                         }
@@ -744,9 +821,13 @@ Scope {
                         Text {
                             anchors.top: appIcon.bottom
                             anchors.topMargin: 4
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.margins: 4
+                            anchors.horizontalCenter: appIcon.horizontalCenter
+                            // Крайние подписи также не заходят в padding.
+                            width: appTile.visualIndex % Metrics.appLauncherColumns === 0
+                                || appTile.visualIndex % Metrics.appLauncherColumns
+                                    === Metrics.appLauncherColumns - 1
+                                ? appIcon.width : appGrid.cellWidth - 8
+                            height: labelMetrics.height
                             text: launcher.itemName(appTile.launcherItem)
                             color: Theme.foregroundColor
                             font.pixelSize: Metrics.appLauncherFontSize
@@ -804,10 +885,10 @@ Scope {
                         cursorShape: {
                             const target = launcher.dropTarget(appGridWheelCapture,
                                 mouseX, mouseY);
-                            const overScrollbar = mouseX >= appsSurface.width
-                                - Metrics.appLauncherPadding - 5
-                                && mouseX <= appsSurface.width
-                                    - Metrics.appLauncherPadding;
+                            const overScrollbar = mouseX >= appGridScrollBar.x
+                                && mouseX <= appGridScrollBar.x + appGridScrollBar.width
+                                && mouseY >= appGridScrollBar.y
+                                && mouseY <= appGridScrollBar.y + appGridScrollBar.height;
                             return target?.icon || overScrollbar
                                 ? Qt.PointingHandCursor : Qt.ArrowCursor;
                         }
@@ -824,66 +905,6 @@ Scope {
                         font.pixelSize: Metrics.statusBarFontSize
                     }
 
-                    // Fade — часть поверхности приложений: это только
-                    // полупрозрачный градиент, без отдельной layer-surface.
-                    Rectangle {
-                        id: topScrollFade
-                        z: 3
-                        anchors.top: parent.top
-                        width: parent.width
-                        height: Math.min(parent.height,
-                            Metrics.appLauncherScrollFadeRadius)
-                        opacity: launcher.draggingIcon || !appGrid.atYBeginning ? 1 : 0
-                        Behavior on opacity {
-                            NumberAnimation { duration: Motion.quickDurationMs }
-                        }
-                        gradient: Gradient {
-                            GradientStop {
-                                position: 0
-                                color: Theme.withOpacity("overlay",
-                                    Metrics.appLauncherScrollFadeStrength)
-                            }
-                            GradientStop { position: 1; color: Theme.transparentColor }
-                        }
-                    }
-
-                    Rectangle {
-                        id: bottomScrollFade
-                        z: 3
-                        anchors.bottom: parent.bottom
-                        width: parent.width
-                        height: Math.min(parent.height,
-                            Metrics.appLauncherScrollFadeRadius)
-                        opacity: launcher.draggingIcon || !appGrid.atYEnd ? 1 : 0
-                        Behavior on opacity {
-                            NumberAnimation { duration: Motion.quickDurationMs }
-                        }
-                        gradient: Gradient {
-                            GradientStop { position: 0; color: Theme.transparentColor }
-                            GradientStop {
-                                position: 1
-                                color: Theme.withOpacity("overlay",
-                                    Metrics.appLauncherScrollFadeStrength)
-                            }
-                        }
-                    }
-                }
-
-                // Маска лежит вне appsSurface, чтобы не попадать в её texture
-                // layer и точно повторять скруглённую геометрию панели.
-                Item {
-                    id: appsMask
-                    visible: false
-                    layer.enabled: true
-                    width: appsSurface.width
-                    height: appsSurface.height
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Metrics.panelRadius
-                        color: Theme.shadowMaskColor
-                        antialiasing: true
-                    }
                 }
 
             }
@@ -892,6 +913,7 @@ Scope {
             Image {
                 id: dragPreview
                 visible: launcher.draggingIcon && !folderPopup.exporting
+                    && launcher.openFolderId.length > 0
                 x: launcher.dragPosition.x - width / 2
                 y: launcher.dragPosition.y - height / 2
                 width: Metrics.appLauncherIconSize
@@ -906,7 +928,6 @@ Scope {
                 Rectangle {
                     anchors.fill: parent
                     visible: launcher.draggedItem?.type === "folder"
-                        && launcher.openFolderId.length > 0
                     radius: Metrics.panelRadius
                     color: Theme.backgroundColor
                     border.color: Theme.borderColor
@@ -936,7 +957,7 @@ Scope {
     AppLauncherShadow {
         targetScreen: launcher.targetScreen
         layoutItem: launcherLayout
-        sourcePanels: [searchSurface, appsSurface]
+        sourcePanels: [searchSurface]
     }
 
     // У HyprGlass contour-маска: fullscreen overlay не должен объединять
@@ -1011,8 +1032,14 @@ Scope {
         titleText: AppLauncherService.folderName(launcher.openFolderId)
         open: launcher.openFolderId.length > 0
         onDismissed: {
+            folderPopup.commitFolderName();
             launcher.endIconDrag();
             launcher.openFolderId = "";
+        }
+        onApplicationLaunched: {
+            folderPopup.commitFolderName();
+            launcher.openFolderId = "";
+            launcher.close();
         }
         onExportMoved: position => {
             if (!launcher.draggingIcon) {
@@ -1047,5 +1074,15 @@ Scope {
             launcher.landingItemKey = itemKey;
             landingTimer.restart();
         }
+    }
+
+    LauncherDragPreview {
+        targetScreen: launcher.targetScreen
+        position: launcher.dragPosition
+        iconSource: launcher.draggedIconSource
+        entries: launcher.draggedItem?.previewEntries ?? []
+        folderPreview: launcher.draggedItem?.type === "folder"
+        active: launcher.draggingIcon && launcher.openFolderId.length === 0
+        contentOpacity: launcherLayout.opacity
     }
 }

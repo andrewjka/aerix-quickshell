@@ -17,6 +17,19 @@ QtObject {
     property bool layoutLoaded: false
     property int folderSequence: 0
     property bool layoutMigrationPending: false
+    // Временная нагрузочная выборка для проверки виртуализации launcher. Она
+    // существует только в presentationItems и не сохраняется в раскладке.
+    readonly property var testPresentationItems: Array.from({ length: 200 },
+        (_, index) => ({
+            type: "application",
+            key: "launcher-test:" + index,
+            entry: {
+                id: "launcher-test:" + index,
+                name: "Test application " + String(index + 1).padStart(3, "0"),
+                icon: "application-x-executable",
+                execute: () => {}
+            }
+        }))
 
     // Создаёт сериализуемую ссылку на реальное приложение.
     function applicationItem(entry, key) {
@@ -25,6 +38,15 @@ QtObject {
             key: key,
             appId: String(entry.id)
         };
+    }
+
+    function testEntry(itemKey) {
+        return testPresentationItems.find(item => item.key === itemKey)?.entry
+            ?? null;
+    }
+
+    function entryForApplication(item) {
+        return entriesById[item.appId] ?? testEntry(item.key);
     }
 
     function hasLegacyTestItems(items) {
@@ -57,10 +79,13 @@ QtObject {
     }
 
     function cloneApplication(item, available, keys) {
+        const isTestItem = typeof item?.key === "string"
+            && item.key.startsWith("launcher-test:")
+            && item.appId === item.key && testEntry(item.key) !== null;
         if (!item || item.type !== "application"
             || typeof item.key !== "string" || item.key.startsWith("test:")
             || typeof item.appId !== "string"
-            || !available[item.appId] || keys[item.key])
+            || (!available[item.appId] && !isTestItem) || keys[item.key])
             return null;
         keys[item.key] = true;
         return {
@@ -158,13 +183,13 @@ QtObject {
         const source = folderId ? layoutItems.find(item =>
             item.type === "folder" && item.id === folderId)?.children ?? []
             : layoutItems;
-        return source.map(item => {
+        const presentation = source.map(item => {
             if (item.type === "folder") {
                 // Preview is resolved here together with the folder model. This
                 // keeps image bindings local to the GridView model and avoids a
                 // second lookup through a transient delegate object.
                 const previewEntries = item.children.slice(0, 4).map(child =>
-                    entriesById[child.appId]).filter(entry => entry);
+                    entryForApplication(child)).filter(entry => entry);
                 return {
                     type: "folder",
                     key: item.id,
@@ -178,9 +203,20 @@ QtObject {
             return {
                 type: "application",
                 key: item.key,
-                entry: entriesById[item.appId]
+                entry: entryForApplication(item)
             };
         }).filter(item => item.type === "folder" || item.entry);
+        if (folderId)
+            return presentation;
+        const placedTestKeys = new Set();
+        for (const item of layoutItems) {
+            if (item.type === "application")
+                placedTestKeys.add(item.key);
+            else if (item.type === "folder")
+                item.children.forEach(child => placedTestKeys.add(child.key));
+        }
+        return presentation.concat(testPresentationItems.filter(item =>
+            !placedTestKeys.has(item.key)));
     }
 
     // insertionIndex — позиция между элементами в исходной модели, а не индекс
@@ -282,11 +318,17 @@ QtObject {
             && item.key === itemKey);
         const folderIndex = layoutItems.findIndex(item => item.type === "folder"
             && item.id === folderId);
-        if (sourceIndex < 0 || folderIndex < 0)
+        const testSource = sourceIndex < 0 ? testEntry(itemKey) : null;
+        if ((sourceIndex < 0 && !testSource) || folderIndex < 0)
             return;
         const items = layoutItems.slice();
-        const source = items.splice(sourceIndex, 1)[0];
-        const adjustedFolderIndex = folderIndex - (sourceIndex < folderIndex ? 1 : 0);
+        const source = sourceIndex >= 0 ? items.splice(sourceIndex, 1)[0] : {
+            type: "application",
+            key: itemKey,
+            appId: itemKey
+        };
+        const adjustedFolderIndex = folderIndex - (sourceIndex >= 0
+            && sourceIndex < folderIndex ? 1 : 0);
         const folder = items[adjustedFolderIndex];
         items[adjustedFolderIndex] = {
             type: "folder",

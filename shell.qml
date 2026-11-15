@@ -25,7 +25,7 @@ ShellRoot {
     }
 
     LazyLoader {
-        active: AppLauncherService.open
+        activeAsync: AppLauncherService.open
 
         component: AppLauncher {
             targetScreen: AppLauncherService.targetScreen

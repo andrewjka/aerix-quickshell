@@ -29,9 +29,16 @@ PanelWindow {
 
     signal exportMoved(point position)
     signal exportWheel(var event)
+
+    function commitFolderName() {
+        folderNameInput.commitName();
+    }
+
     onOpenChanged: {
-        if (open)
+        if (open) {
             exporting = false;
+            folderNameInput.text = titleText;
+        }
     }
 
     signal exported(string itemKey, point position)
@@ -94,6 +101,7 @@ PanelWindow {
     }
 
     signal dismissed()
+    signal applicationLaunched()
 
     screen: targetScreen
     anchors { top: true; bottom: true; left: true; right: true }
@@ -118,19 +126,14 @@ PanelWindow {
         }
     }
 
-    // Overlay находится в отдельном окне ниже surface папки.
+    // Перехватывает колесо за пределами папки, но не hover её плиток.
     MouseArea {
         anchors.fill: parent
-        z: 100
+        z: 1.5
         acceptedButtons: Qt.NoButton
         hoverEnabled: true
         scrollGestureEnabled: true
-        cursorShape: mouseX >= folderSurface.x + folderSurface.width
-            - Metrics.appLauncherPadding - 5
-            && mouseX <= folderSurface.x + folderSurface.width
-                - Metrics.appLauncherPadding
-            && mouseY >= folderSurface.y && mouseY <= folderSurface.y + folderSurface.height
-            ? Qt.PointingHandCursor : Qt.ArrowCursor
+        cursorShape: Qt.ArrowCursor
         onWheel: event => {
             event.accepted = true;
             if (folderWindow.exporting)
@@ -155,14 +158,26 @@ PanelWindow {
 
     Rectangle {
         id: folderSurface
+        readonly property real side: Math.min(folderWindow.appsSurface?.width ?? 0,
+            folderWindow.appsSurface?.height ?? 0) * 0.5
+        readonly property real iconSize: Math.max(1, Math.min(
+            Metrics.appLauncherIconSize, width / 4))
+        readonly property real labelExtra: 4 + folderLabelMetrics.height
+        readonly property real gridGap: Math.max(labelExtra,
+            (width - 4 * iconSize) / 4)
+        readonly property real gridStep: iconSize + gridGap
+        readonly property real iconOffset: Math.max(0,
+            (gridGap - labelExtra) / 2)
+        readonly property real gridWidth: 4 * gridStep
+        readonly property real gridHeight: gridWidth
         // opacity сохраняет MouseArea и grab до release при выносе наружу.
         opacity: folderWindow.panelOpen ? 1 : 0
         anchors.horizontalCenter: parent.horizontalCenter
         y: (folderWindow.layoutItem?.y ?? 0)
             + (folderWindow.appsSurface?.y ?? 0)
             + ((folderWindow.appsSurface?.height ?? 0) - height) / 2
-        width: (folderWindow.appsSurface?.width ?? 0) * 0.64
-        height: (folderWindow.appsSurface?.height ?? 0) * 0.62
+        width: side
+        height: width
         radius: Metrics.panelRadius
         color: Theme.backgroundColor
         border.width: 1
@@ -174,14 +189,21 @@ PanelWindow {
 
         GridView {
             id: folderGrid
-            anchors.fill: parent
-            anchors.margins: Metrics.appLauncherPadding
+            x: (parent.width - width) / 2
+            y: (parent.height - height) / 2
+            width: folderSurface.gridWidth
+            height: folderSurface.gridHeight
             clip: true
-            cellWidth: width / 4
-            cellHeight: height / 4
+            cellWidth: folderSurface.gridStep
+            cellHeight: folderSurface.gridStep
             interactive: folderWindow.draggedKey === ""
             cacheBuffer: Math.max(0, folderWindow.draggedKey !== "" ? contentHeight : height)
             model: folderWindow.items
+
+            FontMetrics {
+                id: folderLabelMetrics
+                font.pixelSize: Metrics.appLauncherFontSize
+            }
 
             delegate: Item {
                 id: folderTile
@@ -217,10 +239,11 @@ PanelWindow {
 
                 Image {
                     id: appIcon
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: folderSurface.gridGap / 2
                     anchors.top: parent.top
-                    width: Math.min(Metrics.appLauncherIconSize, parent.width,
-                        Math.max(1, parent.height - Metrics.appLauncherFontSize - Metrics.spacing))
+                    anchors.topMargin: folderSurface.iconOffset
+                    width: folderSurface.iconSize
                     height: width
                     source: folderTile.iconSource
                     sourceSize: Qt.size(Math.ceil(width
@@ -244,9 +267,9 @@ PanelWindow {
                 Text {
                     anchors.top: appIcon.bottom
                     anchors.topMargin: 4
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.margins: 4
+                    anchors.horizontalCenter: appIcon.horizontalCenter
+                    width: appIcon.width
+                    height: folderLabelMetrics.height
                     text: String(folderTile.modelData?.entry?.name ?? "")
                     color: Theme.foregroundColor
                     font.pixelSize: Metrics.appLauncherFontSize
@@ -263,7 +286,10 @@ PanelWindow {
                     anchors.topMargin: -Metrics.appLauncherIconSafeZone
                     width: appIcon.width + 2 * Metrics.appLauncherIconSafeZone
                     height: appIcon.height + 2 * Metrics.appLauncherIconSafeZone
-                    onTapped: folderTile.modelData.entry?.execute()
+                    onTapped: {
+                        folderTile.modelData.entry?.execute();
+                        folderWindow.applicationLaunched();
+                    }
                     onDragStarted: (x, y) => {
                         folderWindow.draggedKey = folderTile.modelData.key;
                         folderWindow.draggedSource = folderTile.iconSource;
@@ -280,27 +306,6 @@ PanelWindow {
                 }
             }
 
-            ScrollBar.vertical: ScrollBar {
-                parent: folderSurface
-                x: folderSurface.width - Metrics.appLauncherPadding - width
-                y: (folderSurface.height - height) / 2
-                height: folderSurface.height * 2 / 3
-                width: 5
-                policy: ScrollBar.AsNeeded
-
-                HoverHandler {
-                    cursorShape: Qt.PointingHandCursor
-                }
-
-                background: Rectangle {
-                    radius: width / 2
-                    color: Theme.withOpacity("foreground", 0.14)
-                }
-                contentItem: Rectangle {
-                    radius: width / 2
-                    color: Theme.withOpacity("foreground", 0.68)
-                }
-            }
         }
 
         TapHandler {
@@ -329,16 +334,43 @@ PanelWindow {
         verticalAlignment: Text.AlignVCenter
         selectByMouse: true
         clip: true
+
+        HoverHandler {
+            cursorShape: Qt.IBeamCursor
+        }
+
         onEditingFinished: {
-            if (text.trim().length === 0)
+            commitName();
+        }
+
+        function commitName() {
+            const nextName = text.trim();
+            if (nextName.length === 0) {
                 text = folderWindow.titleText;
-            else
-                AppLauncherService.renameFolder(folderWindow.folderId, text);
+                return;
+            }
+            AppLauncherService.renameFolder(folderWindow.folderId, nextName);
+        }
+
+        onActiveFocusChanged: {
+            if (!activeFocus)
+                commitName();
+        }
+
+        Connections {
+            target: folderWindow
+
+            function onTitleTextChanged() {
+                if (!folderNameInput.activeFocus)
+                    folderNameInput.text = folderWindow.titleText;
+            }
         }
     }
 
     Image {
         visible: folderWindow.draggedKey !== ""
+        // Preview должен оставаться над плитками открытой папки.
+        z: 10
         x: folderWindow.pointerPosition.x - width / 2
         y: folderWindow.pointerPosition.y - height / 2
         width: Metrics.appLauncherIconSize

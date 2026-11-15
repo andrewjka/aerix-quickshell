@@ -83,8 +83,13 @@ PanelWindow {
                         source: iconName.startsWith("/") ? "file://" + iconName
                             : iconName && Quickshell.hasThemeIcon(iconName)
                                 ? Quickshell.iconPath(iconName) : ""
-                        sourceSize: Qt.size(Math.ceil(width * window.devicePixelRatio),
-                            Math.ceil(height * window.devicePixelRatio))
+                        // Геометрия surface масштабируется при открытии, но
+                        // декодировать миниатюру заново на каждом кадре не нужно.
+                        readonly property int rasterSize: Math.ceil(
+                            (Metrics.appLauncherIconSize - 1.5 * Metrics.spacing)
+                                / 2 * window.devicePixelRatio)
+                        asynchronous: true
+                        sourceSize: Qt.size(rasterSize, rasterSize)
                         fillMode: Image.PreserveAspectFit
                         smooth: true
                     }

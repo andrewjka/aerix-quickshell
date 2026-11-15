@@ -183,6 +183,8 @@ PanelWindow {
         height: popup.surfaceHeight
         radius: Metrics.panelRadius
         color: Theme.backgroundColor
+        border.width: 1
+        border.color: Theme.borderColor
         antialiasing: true
         scale: Motion.spring.startScale
             + (1 - Motion.spring.startScale) * popup.reveal
