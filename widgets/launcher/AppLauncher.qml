@@ -459,22 +459,23 @@ Scope {
                     readonly property real tileHeight: iconSize + 4 + labelMetrics.height
                     readonly property real viewportWidth: Math.min(
                         appsSurface.width * 0.68, 1100)
-                    readonly property real viewportHeight: Math.min(
-                        appsSurface.height * 0.62, 640)
                     readonly property real minimumGridY: searchSurface.y
                         + searchSurface.height + 2 * Metrics.spacing
+                    readonly property real maximumGridHeight: Math.max(0,
+                        appsSurface.height - minimumGridY - Metrics.spacing)
                     readonly property real gridGap: Math.max(tileHeight - iconSize,
                         Math.min(
                             (viewportWidth - Metrics.appLauncherColumns * iconSize)
                                 / Math.max(1, Metrics.appLauncherColumns - 1),
-                            (viewportHeight - tileHeight
-                                - (Metrics.appLauncherVisibleRows - 1) * iconSize)
-                                / Math.max(1, Metrics.appLauncherVisibleRows - 1)))
+                            maximumGridHeight / Metrics.appLauncherVisibleRows
+                                - iconSize))
+                    readonly property real gridHeight: (iconSize + gridGap)
+                        * Metrics.appLauncherVisibleRows
                     x: (appsSurface.width - width) / 2
                     y: Math.max(minimumGridY,
-                        (appsSurface.height - viewportHeight) / 2)
+                        (appsSurface.height - gridHeight) / 2)
                     width: (iconSize + gridGap) * Metrics.appLauncherColumns
-                    height: viewportHeight
+                    height: gridHeight
                     topMargin: 0
                     bottomMargin: 0
                     clip: true

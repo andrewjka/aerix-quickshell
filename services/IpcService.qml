@@ -14,5 +14,9 @@ QtObject {
         function toggleWorkspaceOverview(): void {
             OverviewService.toggle();
         }
+
+        function toggleAppLauncher(): void {
+            AppLauncherService.toggle();
+        }
     }
 }

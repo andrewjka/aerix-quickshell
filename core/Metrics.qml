@@ -67,6 +67,7 @@ QtObject {
         readonly property int activeWorkspacePadding: metrics.configuration.activeWorkspacePadding
         readonly property real iconHoverScale: metrics.configuration.iconHoverScale
         readonly property real iconRasterOversample: metrics.configuration.iconRasterOversample
+        readonly property int closeDelayMs: metrics.configuration.dockCloseDelayMs
     }
     readonly property var statusBar: QtObject {
         readonly property int height: metrics.configuration.statusBarHeight
@@ -102,7 +103,6 @@ QtObject {
         readonly property int quickDurationMs: metrics.configuration.quickDurationMs
         readonly property real springStartScale: metrics.configuration.springStartScale
         readonly property real springOvershoot: metrics.configuration.springOvershoot
-        readonly property int dockCloseDelayMs: metrics.configuration.dockCloseDelayMs
         readonly property var bezierCurve: metrics.configuration.bezierCurve
         readonly property var spring: QtObject {
             readonly property int durationMs: metrics.configuration.durationMs

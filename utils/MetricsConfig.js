@@ -6,7 +6,7 @@ var sections = {
            "panelHorizontalMargin", "panelPadding", "iconSlotSize", "iconSize",
            "iconSpacing", "hoverSpacing", "iconPressOffset", "iconTopOverflow",
            "iconBottomOverflow", "activeWorkspaceGap", "activeWorkspacePadding",
-           "iconHoverScale", "iconRasterOversample"],
+           "iconHoverScale", "iconRasterOversample", "dockCloseDelayMs"],
     statusBar: ["statusBarHeight", "statusBarHorizontalMargin",
                 "statusBarWidgetSpacing", "statusBarFontSize",
                 "statusBarWidgetIconSize"],
@@ -21,7 +21,7 @@ var sections = {
                   "appLauncherOverscrollDistance"],
     preview: ["previewWidth", "previewHeight", "previewTitleHeight"],
     motion: ["durationMs", "quickDurationMs", "springStartScale",
-             "springOvershoot", "dockCloseDelayMs", "bezierCurve"]
+             "springOvershoot", "bezierCurve"]
 };
 var integerKeys = [
     "spacing", "baseFontSize", "panelRadius", "panelShadowRadius",
