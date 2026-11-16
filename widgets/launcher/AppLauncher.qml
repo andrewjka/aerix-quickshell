@@ -378,6 +378,8 @@ Scope {
 
                 Rectangle {
                     id: searchSurface
+                    // Выше fullscreen MouseArea прокрутки, задающей ArrowCursor.
+                    z: 1
                     anchors.horizontalCenter: parent.horizontalCenter
                     y: parent.height * 0.12
                     width: Math.min(parent.width * 0.4, 520)
@@ -386,6 +388,12 @@ Scope {
                     color: Theme.backgroundColor
                     border.width: 1
                     border.color: Theme.borderColor
+
+                    // Поисковая панель целиком ведёт к вводу текста: курсор
+                    // остаётся текстовым и над иконкой, и над placeholder.
+                    HoverHandler {
+                        cursorShape: Qt.IBeamCursor
+                    }
 
                     Image {
                         id: searchIconSource
@@ -424,10 +432,6 @@ Scope {
                         font.pixelSize: Metrics.statusBarFontSize
                         clip: true
                         selectByMouse: true
-
-                        HoverHandler {
-                            cursorShape: Qt.IBeamCursor
-                        }
 
                         onTextChanged: launcher.searchQuery = text
 
