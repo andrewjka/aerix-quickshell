@@ -75,35 +75,20 @@ PanelWindow {
         // Логотип скрывается раньше, чем может пересечься с часами.
         Image {
             id: brandLogo
+            // Aerix-logo.svg имеет квадратное поле 128 × 128. Ширина зависит
+            // только от задаваемой метрики высоты, без цикла Image bindings.
+            readonly property real aspectRatio: 1
             anchors.left: parent.left
             anchors.leftMargin: Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
-            width: 96
-            height: parent.height
+            height: Metrics.statusBarLogoHeight
+            width: height * aspectRatio
             visible: parent.width >= 2 * (Metrics.spacing + width) + clock.implicitWidth
             source: Qt.resolvedUrl("../../assets/icons/Aerix-logo.svg")
             sourceSize.width: Math.ceil(width * statusBar.devicePixelRatio)
             sourceSize.height: Math.ceil(height * statusBar.devicePixelRatio)
             fillMode: Image.PreserveAspectFit
             smooth: true
-        }
-
-        Text {
-            id: appLauncherTrigger
-            anchors.left: brandLogo.right
-            anchors.leftMargin: Metrics.spacing
-            anchors.verticalCenter: parent.verticalCenter
-            text: "apps"
-            color: Theme.foregroundColor
-            font.pixelSize: Metrics.statusBarFontSize
-            font.weight: Font.Medium
-
-            MouseArea {
-                anchors.fill: parent
-                anchors.margins: -4
-                cursorShape: Qt.PointingHandCursor
-                onClicked: AppLauncherService.toggle()
-            }
         }
 
         KeyboardLayoutWidget {

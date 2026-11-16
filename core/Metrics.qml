@@ -25,7 +25,7 @@ QtObject {
         iconSize: 44, iconSpacing: 22, hoverSpacing: 33, iconPressOffset: 8,
         iconTopOverflow: 16, iconBottomOverflow: 16, activeWorkspaceGap: 33,
         activeWorkspacePadding: 12, iconHoverScale: 1.5,
-        iconRasterOversample: 1.1, statusBarHeight: 40,
+        iconRasterOversample: 1.1, statusBarHeight: 40, statusBarLogoHeight: 40,
         statusBarHorizontalMargin: 10, statusBarWidgetSpacing: 10,
         statusBarFontSize: 16, statusBarWidgetIconSize: 20, popupRowSpacing: 8,
         appLauncherColumns: 8, appLauncherVisibleRows: 4,
@@ -71,6 +71,7 @@ QtObject {
     }
     readonly property var statusBar: QtObject {
         readonly property int height: metrics.configuration.statusBarHeight
+        readonly property int logoHeight: metrics.configuration.statusBarLogoHeight
         readonly property int horizontalMargin: metrics.configuration.statusBarHorizontalMargin
         readonly property int widgetSpacing: metrics.configuration.statusBarWidgetSpacing
         readonly property int fontSize: metrics.configuration.statusBarFontSize
@@ -140,6 +141,7 @@ QtObject {
     readonly property real iconHoverScale: configuration.iconHoverScale
     readonly property real iconRasterOversample: configuration.iconRasterOversample
     readonly property int statusBarHeight: configuration.statusBarHeight
+    readonly property int statusBarLogoHeight: configuration.statusBarLogoHeight
     readonly property int statusBarHorizontalMargin: configuration.statusBarHorizontalMargin
     readonly property int statusBarWidgetSpacing: configuration.statusBarWidgetSpacing
     readonly property int statusBarFontSize: configuration.statusBarFontSize
