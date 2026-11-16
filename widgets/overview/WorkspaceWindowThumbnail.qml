@@ -21,6 +21,11 @@ Rectangle {
     property bool captureFailed: false
     property bool awaitingFreshFrame: false
     property int previewRefreshGeneration: 0
+    property string landingAddress: ""
+    property int landingWorkspaceId: -1
+    property int landingGeneration: 0
+    property int handledLandingGeneration: 0
+    property real landingProgress: 1
     // true, пока WorkspaceService стабилизирует геометрию после переноса:
     // перезахват кадров ждёт сигнала settled (через previewRefreshGeneration),
     // а не идёт на каждый промежуточный размер.
@@ -54,6 +59,8 @@ Rectangle {
     y: (sourceY - monitorGeometry.y) / monitorHeight * (parent?.height ?? 0)
     width: sourceWidth / monitorWidth * (parent?.width ?? 0)
     height: sourceHeight / monitorHeight * (parent?.height ?? 0)
+    scale: landingProgress
+    transformOrigin: Item.Center
     radius: Metrics.panelRadius
     clip: true
     // Снимок сам задаёт вид окна; белая стеклянная подложка искажала
@@ -105,6 +112,18 @@ Rectangle {
         queueCaptureRebuild();
     }
 
+    // Появление запускается лишь после того, как Hyprland подтвердил новую
+    // workspace миниатюры. Это исключает пружину при начале drag или отказе IPC.
+    function startLandingAnimation() {
+        if (landingGeneration <= handledLandingGeneration
+            || landingAddress !== toplevelAddress
+            || landingWorkspaceId !== workspaceId)
+            return;
+        handledLandingGeneration = landingGeneration;
+        landingProgress = 0.72;
+        landingAnimation.restart();
+    }
+
     // Opens a fresh toplevel-export context. Keep the last texture available
     // as a fallback; the card itself is dimmed while this export is pending.
     function rebuildCapture() {
@@ -130,6 +149,16 @@ Rectangle {
         onTriggered: thumbnail.requestFreshCapture()
     }
 
+    NumberAnimation {
+        id: landingAnimation
+        target: thumbnail
+        property: "landingProgress"
+        to: 1
+        duration: Metrics.spring.durationMs
+        easing.type: Metrics.spring.easingType
+        easing.bezierCurve: Metrics.spring.bezierCurve
+    }
+
     function scheduleGeometryRebuild() {
         if (suspendRebuild)
             return;
@@ -141,7 +170,9 @@ Rectangle {
     onWorkspaceIdChanged: Qt.callLater(() => {
         if (!thumbnail.suspendRebuild)
             thumbnail.requestFreshCapture();
+        thumbnail.startLandingAnimation();
     })
+    onLandingGenerationChanged: startLandingAnimation()
     onPreviewRefreshGenerationChanged: {
         if (previewRefreshGeneration > 0)
             requestFreshCapture();

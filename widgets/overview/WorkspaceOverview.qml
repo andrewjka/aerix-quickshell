@@ -24,6 +24,15 @@ Scope {
     property string dragKind: ""
     property int dragSourceIndex: -1
     property Item dragVisual: null
+    // После подтверждённого drop переносимая миниатюра появляется в цели с
+    // пружиной. Адрес нужен вместо ссылки: Hyprland может пересоздать wrapper.
+    property string landingWindowAddress: ""
+    property int landingWindowWorkspaceId: -1
+    property int landingWindowGeneration: 0
+    property bool workspaceSwapPending: false
+    property int workspaceSwapGeneration: 0
+    property int workspaceSwapSourceIndex: -1
+    property int workspaceSwapTargetIndex: -1
     property Item hoveredWindow: null
     // Ссылки нужны верхней surface, чтобы запросить blur ровно под карточками.
     property var cardItems: []
@@ -97,6 +106,9 @@ Scope {
             monitorGeometry: card?.monitorGeometry ?? { x: 0, y: 0, width: 1, height: 1 }
             workspaceId: modelData.workspace?.id ?? overview.noWorkspaceId
             enabled: !WorkspaceService.busy
+            landingAddress: overview.landingWindowAddress
+            landingWorkspaceId: overview.landingWindowWorkspaceId
+            landingGeneration: overview.landingWindowGeneration
             // Floating-окна Hyprland рисует поверх тайловых.
             z: (modelData.lastIpcObject?.floating ? 5000 : 0)
                 + 1000 - (modelData.lastIpcObject?.focusHistoryID ?? 0)
@@ -236,7 +248,12 @@ Scope {
             return;
         const source = slots[dragSourceIndex];
         const target = slots[targetIndex];
-        WorkspaceService.swapWorkspaces(source, target);
+        if (!WorkspaceService.swapWorkspaces(source, target))
+            return;
+        workspaceSwapSourceIndex = dragSourceIndex;
+        workspaceSwapTargetIndex = targetIndex;
+        workspaceSwapPending = true;
+        workspaceSwapGeneration += 1;
     }
 
     // Переносит окно в workspace целевой карточки, если он отличается от текущего.
@@ -245,7 +262,11 @@ Scope {
         if (!toplevel || !target || WorkspaceService.busy
             || toplevel.workspace?.id === target.workspaceId)
             return;
-        WorkspaceService.moveWindow(toplevel.address, target.workspaceId);
+        if (!WorkspaceService.moveWindow(toplevel.address, target.workspaceId))
+            return;
+        landingWindowAddress = WorkspaceService.normalizedAddress(toplevel.address);
+        landingWindowWorkspaceId = target.workspaceId;
+        landingWindowGeneration += 1;
     }
 
     // Возвращает индекс карточки, расположенной под координатами drag-жеста.
@@ -314,6 +335,18 @@ Scope {
             if (overview.pendingWorkspaceId >= 0
                 && Hyprland.focusedWorkspace?.id === overview.pendingWorkspaceId)
                 overview.close();
+        }
+    }
+
+    Connections {
+        target: WorkspaceService
+
+        // Контент обеих карточек уже обновлён и стабилизирован: только теперь
+        // запускаем spring, чтобы он показывал именно завершённый обмен.
+        function onSettled() {
+            if (!overview.workspaceSwapPending)
+                return;
+            overview.workspaceSwapPending = false;
         }
     }
 
@@ -414,6 +447,10 @@ Scope {
                         height: (grid.height - (overview.rows - 1) * grid.spacing)
                             / overview.rows
                         radius: Metrics.panelRadius
+                        property int handledSwapGeneration: 0
+                        property real swapProgress: 1
+                        scale: swapProgress
+                        transformOrigin: Item.Center
                         color: Theme.backgroundColor
                         border.width: 1
                         // Наведение получает ту же контрастную рамку, что и
@@ -430,6 +467,23 @@ Scope {
                         readonly property var wallpaper: wallpapers.backgroundFor(
                             modelData.monitorName || String(overview.targetScreen?.name ?? ""))
                         readonly property Item previewCanvas: workspaceCanvas
+
+                        function startSwapAnimation() {
+                            if (overview.workspaceSwapGeneration <= handledSwapGeneration
+                                || (index !== overview.workspaceSwapSourceIndex
+                                    && index !== overview.workspaceSwapTargetIndex))
+                                return;
+                            handledSwapGeneration = overview.workspaceSwapGeneration;
+                            swapProgress = Metrics.springStartScale;
+                            swapAnimation.restart();
+                        }
+
+                        Connections {
+                            target: overview
+                            function onWorkspaceSwapGenerationChanged() {
+                                card.startSwapAnimation();
+                            }
+                        }
 
                         // Фон/подпись перетаскивает workspace; миниатюры выше
                         // самостоятельно захватывают жест переноса окна.
@@ -500,6 +554,16 @@ Scope {
                                 font.pixelSize: 14
                             }
 
+                            NumberAnimation {
+                                id: swapAnimation
+                                target: card
+                                property: "swapProgress"
+                                to: 1
+                                duration: Metrics.spring.durationMs
+                                easing.type: Metrics.spring.easingType
+                                easing.bezierCurve: Metrics.spring.bezierCurve
+                            }
+
                         }
 
                         // Источник маски для MultiEffect: скрытый слой того же
@@ -559,6 +623,7 @@ Scope {
                 }
             }
         }
+
         Rectangle {
             id: dragPreview
             visible: overview.draggingWindow
