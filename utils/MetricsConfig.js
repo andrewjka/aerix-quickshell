@@ -6,11 +6,12 @@ var sections = {
            "panelHorizontalMargin", "panelPadding", "iconSlotSize", "iconSize",
            "iconSpacing", "hoverSpacing", "iconPressOffset", "iconTopOverflow",
            "iconBottomOverflow", "activeWorkspaceGap", "activeWorkspacePadding",
-           "iconHoverScale", "iconRasterOversample", "dockCloseDelayMs"],
+           "iconHoverScale", "iconRasterOversample"],
     statusBar: ["statusBarHeight", "statusBarLogoHeight", "statusBarHorizontalMargin",
                 "statusBarWidgetSpacing", "statusBarFontSize",
                 "statusBarWidgetIconSize"],
     popup: ["popupRowSpacing"],
+    osd: ["osdWidth", "osdHeight"],
     appLauncher: ["appLauncherColumns", "appLauncherVisibleRows",
                   "appLauncherIconSize", "appLauncherIconSafeZone",
                   "appLauncherFontSize", "appLauncherSearchCascadeDelayMs",
@@ -20,7 +21,7 @@ var sections = {
                   "appLauncherDragAutoScrollRowsPerSecond",
                   "appLauncherOverscrollDistance"],
     preview: ["previewWidth", "previewHeight", "previewTitleHeight"],
-    motion: ["durationMs", "quickDurationMs", "springStartScale",
+    motion: ["durationMs", "quickDurationMs", "springStartScale", "longHoldDelayMs",
              "springOvershoot", "bezierCurve"]
 };
 var integerKeys = [
@@ -31,12 +32,13 @@ var integerKeys = [
     "iconBottomOverflow", "activeWorkspaceGap", "activeWorkspacePadding",
     "statusBarHeight", "statusBarLogoHeight", "statusBarHorizontalMargin", "statusBarWidgetSpacing",
     "statusBarFontSize", "statusBarWidgetIconSize", "popupRowSpacing",
+    "osdWidth", "osdHeight",
     "appLauncherColumns", "appLauncherVisibleRows", "appLauncherIconSize",
     "appLauncherIconSafeZone", "appLauncherFontSize",
     "appLauncherSearchCascadeDelayMs", "appLauncherFolderTitleFontSize",
     "appLauncherScrollFadeRadius", "appLauncherOverscrollDistance",
     "previewWidth", "previewHeight", "previewTitleHeight", "durationMs",
-    "quickDurationMs", "dockCloseDelayMs"
+    "quickDurationMs", "longHoldDelayMs"
 ];
 var curveKey = "bezierCurve";
 var keys = Object.keys(sections).reduce(function(result, section) {

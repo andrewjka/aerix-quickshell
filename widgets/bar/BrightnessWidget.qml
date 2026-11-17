@@ -22,6 +22,7 @@ Item {
 
     function closePopup() {
         popupOpen = false;
+        OsdService.brightnessPopupOpen = false;
     }
 
     function dismissPopup() {
@@ -34,6 +35,7 @@ Item {
     function openPopup() {
         if (!canInteract)
             return;
+        OsdService.brightnessPopupOpen = true;
         BrightnessService.refreshMonitors();
         BrightnessService.refresh();
         popupOpened();

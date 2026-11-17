@@ -22,6 +22,7 @@ Item {
 
     function closePopup() {
         popupOpen = false;
+        OsdService.volumePopupOpen = false;
     }
 
     function dismissPopup() {
@@ -36,6 +37,7 @@ Item {
             return;
         popupOpened();
         popupOpen = true;
+        OsdService.volumePopupOpen = true;
     }
 
     Shared.StatusBarIcon {

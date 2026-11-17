@@ -47,6 +47,13 @@ ShellRoot {
 
     Variants {
         model: Quickshell.screens
+        // OSD surface существует на каждом экране, но активируется сервисом
+        // только на мониторе, где изменилось значение.
+        Osd {}
+    }
+
+    Variants {
+        model: Quickshell.screens
         Scope {
             id: dockScope
             required property var modelData

@@ -28,6 +28,7 @@ QtObject {
         iconRasterOversample: 1.1, statusBarHeight: 40, statusBarLogoHeight: 40,
         statusBarHorizontalMargin: 10, statusBarWidgetSpacing: 10,
         statusBarFontSize: 16, statusBarWidgetIconSize: 20, popupRowSpacing: 8,
+        osdWidth: 260, osdHeight: 52,
         appLauncherColumns: 8, appLauncherVisibleRows: 4,
         appLauncherIconSize: 64, appLauncherIconSafeZone: 10,
         appLauncherFontSize: 14, appLauncherSearchCascadeDelayMs: 32,
@@ -37,7 +38,7 @@ QtObject {
         appLauncherOverscrollDistance: 128, previewWidth: 440,
         previewHeight: 248, previewTitleHeight: 30, durationMs: 512,
         quickDurationMs: 256, springStartScale: 0.08, springOvershoot: 0.16,
-        dockCloseDelayMs: 1128,
+        longHoldDelayMs: 1128,
         bezierCurve: [0.05, 0.9, 0.1, 1.05, 1, 1]
     })
 
@@ -67,7 +68,7 @@ QtObject {
         readonly property int activeWorkspacePadding: metrics.configuration.activeWorkspacePadding
         readonly property real iconHoverScale: metrics.configuration.iconHoverScale
         readonly property real iconRasterOversample: metrics.configuration.iconRasterOversample
-        readonly property int closeDelayMs: metrics.configuration.dockCloseDelayMs
+        readonly property int closeDelayMs: metrics.configuration.longHoldDelayMs
     }
     readonly property var statusBar: QtObject {
         readonly property int height: metrics.configuration.statusBarHeight
@@ -79,6 +80,10 @@ QtObject {
     }
     readonly property var popup: QtObject {
         readonly property int rowSpacing: metrics.configuration.popupRowSpacing
+    }
+    readonly property var osd: QtObject {
+        readonly property int width: metrics.configuration.osdWidth
+        readonly property int height: metrics.configuration.osdHeight
     }
     readonly property var appLauncher: QtObject {
         readonly property int columns: metrics.configuration.appLauncherColumns
@@ -102,6 +107,7 @@ QtObject {
     readonly property var motion: QtObject {
         readonly property int durationMs: metrics.configuration.durationMs
         readonly property int quickDurationMs: metrics.configuration.quickDurationMs
+        readonly property int longHoldDelayMs: metrics.configuration.longHoldDelayMs
         readonly property real springStartScale: metrics.configuration.springStartScale
         readonly property real springOvershoot: metrics.configuration.springOvershoot
         readonly property var bezierCurve: metrics.configuration.bezierCurve
@@ -147,6 +153,8 @@ QtObject {
     readonly property int statusBarFontSize: configuration.statusBarFontSize
     readonly property int statusBarWidgetIconSize: configuration.statusBarWidgetIconSize
     readonly property int popupRowSpacing: configuration.popupRowSpacing
+    readonly property int osdWidth: configuration.osdWidth
+    readonly property int osdHeight: configuration.osdHeight
     readonly property int appLauncherColumns: configuration.appLauncherColumns
     readonly property int appLauncherVisibleRows: configuration.appLauncherVisibleRows
     readonly property int appLauncherIconSize: configuration.appLauncherIconSize
@@ -166,7 +174,11 @@ QtObject {
     readonly property int quickDurationMs: configuration.quickDurationMs
     readonly property real springStartScale: configuration.springStartScale
     readonly property real springOvershoot: configuration.springOvershoot
-    readonly property int dockCloseDelayMs: configuration.dockCloseDelayMs
+    // Долгое удержание не привязано к конкретному виджету: Dock и OSD
+    // завершают показ синхронно, используя один конфигурационный интервал.
+    readonly property int longHoldDelayMs: configuration.longHoldDelayMs
+    readonly property int dockCloseDelayMs: longHoldDelayMs
+    readonly property int osdCloseDelayMs: longHoldDelayMs
     readonly property var bezierCurve: configuration.bezierCurve
 
     readonly property var spring: motion.spring
