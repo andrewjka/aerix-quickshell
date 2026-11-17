@@ -3,8 +3,8 @@ pragma Singleton
 import QtQml
 import Quickshell.Io
 
-// Сервис отделяет DDC/CI-команды от виджетов. `detect --brief` даёт имя
-// дисплея и его логический номер, который затем передаётся как `--display`.
+// Сервис отделяет команды DDC/CI и hyprsunset от виджетов. `detect --brief`
+// даёт имя дисплея и его логический номер для `ddcutil --display`.
 QtObject {
     id: service
 
@@ -12,6 +12,11 @@ QtObject {
     property var selectedMonitor: null
     property int brightnessPercent: 50
     property var confirmedBrightnessByDisplay: ({})
+    readonly property int minimumTemperature: 1000
+    readonly property int maximumTemperature: 10000
+    readonly property int temperatureStep: 100
+    property int temperatureKelvin: 6500
+    property int confirmedTemperatureKelvin: 6500
     readonly property bool available: monitors.length > 0
     property bool detectionActive: false
     property bool queryActive: false
@@ -20,6 +25,9 @@ QtObject {
     property bool setActive: false
     property var queuedSet: null
     property var inFlightSet: null
+    property bool temperatureSetActive: false
+    property int queuedTemperature: -1
+    property int inFlightTemperature: -1
 
     function isSelectedMonitor(monitor) {
         return monitor !== null && selectedMonitor !== null
@@ -118,6 +126,19 @@ QtObject {
         return setBrightnessPercent(brightnessPercent + deltaPercent);
     }
 
+    function setTemperatureKelvin(temperature) {
+        if (!Number.isFinite(temperature))
+            return false;
+
+        const next = Math.round(Math.max(minimumTemperature,
+            Math.min(maximumTemperature, temperature)) / temperatureStep)
+            * temperatureStep;
+        temperatureKelvin = next;
+        queuedTemperature = next;
+        runQueuedTemperatureSet();
+        return true;
+    }
+
     function runQueuedSet() {
         if (setActive || queuedSet === null)
             return;
@@ -128,6 +149,20 @@ QtObject {
         brightnessSet.exec([
             "ddcutil", "setvcp", "10", String(inFlightSet.percent),
             "--display", String(inFlightSet.display)
+        ]);
+    }
+
+    // hyprctl обрабатывает запросы синхронно, поэтому во время перетаскивания
+    // отправляем только последнее ещё не применённое значение температуры.
+    function runQueuedTemperatureSet() {
+        if (temperatureSetActive || queuedTemperature < 0)
+            return;
+
+        inFlightTemperature = queuedTemperature;
+        queuedTemperature = -1;
+        temperatureSetActive = true;
+        temperatureSet.exec([
+            "hyprctl", "hyprsunset", "temperature", String(inFlightTemperature)
         ]);
     }
 
@@ -207,6 +242,26 @@ QtObject {
                     && service.selectedMonitor.display === request.display) {
                 service.refresh();
             }
+        }
+    }
+
+    property Process temperatureSet: Process {
+        onExited: (exitCode, exitStatus) => {
+            const request = service.inFlightTemperature;
+            service.inFlightTemperature = -1;
+            service.temperatureSetActive = false;
+
+            if (exitCode !== 0) {
+                console.warn("brightness: could not set color temperature (hyprctl exit "
+                    + exitCode + ")");
+                if (service.queuedTemperature < 0)
+                    service.temperatureKelvin = service.confirmedTemperatureKelvin;
+            } else {
+                service.confirmedTemperatureKelvin = request;
+            }
+
+            if (service.queuedTemperature >= 0)
+                service.runQueuedTemperatureSet();
         }
     }
 

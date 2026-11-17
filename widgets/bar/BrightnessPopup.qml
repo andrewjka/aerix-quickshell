@@ -9,7 +9,8 @@ import "shared" as Shared
 import "../../core"
 import "../../services"
 
-// Один слой яркости: верх управляет VCP 10 выбранного дисплея, низ выбирает его.
+// Один слой яркости: шкалы управляют яркостью и цветовой температурой, ниже —
+// выбор дисплея для DDC/CI.
 PanelWindow {
     id: popup
 
@@ -44,7 +45,7 @@ PanelWindow {
         screen.width - 2 * Metrics.statusBarHorizontalMargin)
     // qmllint enable missing-property
     // Все стороны frame получают единый внутренний отступ Metrics.spacing.
-    readonly property int surfaceHeight: 4 * Metrics.spacing + mixerHeight + 1
+    readonly property int surfaceHeight: 5 * Metrics.spacing + 2 * mixerHeight + 1
         + sectionLabelHeight + 4 + listHeight
     readonly property real surfaceX: {
         const barWidth = barWindow.width;
@@ -149,7 +150,7 @@ PanelWindow {
             anchors.fill: parent
 
             Item {
-                id: mixer
+                id: brightnessMixer
                 x: Metrics.spacing
                 y: Metrics.spacing
                 width: parent.width - 2 * Metrics.spacing
@@ -162,7 +163,7 @@ PanelWindow {
                     width: Metrics.statusBarFontSize + 6
                     height: width
                     iconSource: Qt.resolvedUrl("../../assets/icons/brightness.svg")
-                    tintColor: Theme.foregroundColor
+                    tintColor: "white"
                     devicePixelRatio: popup.barWindow?.devicePixelRatio ?? 1
                 }
 
@@ -184,7 +185,7 @@ PanelWindow {
                     anchors.leftMargin: Metrics.spacing
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    height: mixer.height
+                    height: brightnessMixer.height
                     readonly property real percent: sliderMouse.pressed
                         ? sliderMouse.draggedPercent : BrightnessService.brightnessPercent
 
@@ -241,9 +242,123 @@ PanelWindow {
                 }
             }
 
+            Item {
+                id: temperatureMixer
+                x: Metrics.spacing
+                y: brightnessMixer.y + brightnessMixer.height + Metrics.spacing
+                width: parent.width - 2 * Metrics.spacing
+                height: popup.mixerHeight
+
+                Shared.StatusBarIcon {
+                    id: temperatureIcon
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Metrics.statusBarFontSize + 6
+                    height: width
+                    iconSource: {
+                        const range = BrightnessService.maximumTemperature
+                            - BrightnessService.minimumTemperature;
+                        const progress = (BrightnessService.temperatureKelvin
+                            - BrightnessService.minimumTemperature) / range;
+                        if (progress < 0.25)
+                            return Qt.resolvedUrl("../../assets/icons/temperature-min.svg");
+                        if (progress < 0.5)
+                            return Qt.resolvedUrl("../../assets/icons/temperature-quarter.svg");
+                        if (progress < 0.75)
+                            return Qt.resolvedUrl("../../assets/icons/temperature-half.svg");
+                        return Qt.resolvedUrl("../../assets/icons/temperature-high.svg");
+                    }
+                    tintColor: Theme.foregroundColor
+                    devicePixelRatio: popup.barWindow?.devicePixelRatio ?? 1
+                }
+
+                Text {
+                    id: temperatureValue
+                    anchors.left: temperatureIcon.right
+                    anchors.leftMargin: Metrics.spacing
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: String(BrightnessService.temperatureKelvin) + "K"
+                    color: Theme.foregroundColor
+                    font.pixelSize: Metrics.statusBarFontSize
+                    font.weight: Font.Medium
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                Item {
+                    id: temperatureSlider
+                    anchors.left: temperatureValue.right
+                    anchors.leftMargin: Metrics.spacing
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: temperatureMixer.height
+                    readonly property real progress: temperatureSliderMouse.pressed
+                        ? temperatureSliderMouse.draggedProgress
+                        : (BrightnessService.temperatureKelvin
+                            - BrightnessService.minimumTemperature)
+                            / (BrightnessService.maximumTemperature
+                                - BrightnessService.minimumTemperature)
+
+                    function setFromX(positionX) {
+                        const progress = Math.max(0, Math.min(1,
+                            positionX / Math.max(1, width)));
+                        temperatureSliderMouse.draggedProgress = progress;
+                        BrightnessService.setTemperatureKelvin(
+                            BrightnessService.minimumTemperature + progress
+                            * (BrightnessService.maximumTemperature
+                                - BrightnessService.minimumTemperature));
+                    }
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 4
+                        radius: Metrics.panelRadius
+                        color: Theme.overlayColor
+
+                        Rectangle {
+                            width: temperatureSlider.progress * parent.width
+                            height: parent.height
+                            radius: Metrics.panelRadius
+                            color: Theme.accentColor
+                        }
+                    }
+
+                    Rectangle {
+                        x: temperatureSlider.progress * (temperatureSlider.width - width)
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 12
+                        height: 12
+                        radius: Metrics.panelRadius
+                        color: Theme.foregroundColor
+                        antialiasing: true
+                    }
+
+                    MouseArea {
+                        id: temperatureSliderMouse
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 16
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        property real draggedProgress: (BrightnessService.temperatureKelvin
+                            - BrightnessService.minimumTemperature)
+                            / (BrightnessService.maximumTemperature
+                                - BrightnessService.minimumTemperature)
+                        onPressed: mouse => temperatureSlider.setFromX(mouse.x)
+                        onPositionChanged: mouse => {
+                            if (pressed)
+                                temperatureSlider.setFromX(mouse.x);
+                        }
+                        onReleased: mouse => temperatureSlider.setFromX(mouse.x)
+                    }
+                }
+            }
+
             Rectangle {
                 x: Metrics.spacing
-                y: mixer.y + mixer.height + Metrics.spacing
+                y: temperatureMixer.y + temperatureMixer.height + Metrics.spacing
                 width: parent.width - 2 * Metrics.spacing
                 height: 1
                 color: Theme.borderColor
@@ -252,7 +367,7 @@ PanelWindow {
             Text {
                 id: monitorsLabel
                 x: Metrics.spacing
-                y: mixer.y + mixer.height + 2 * Metrics.spacing + 1
+                y: temperatureMixer.y + temperatureMixer.height + 2 * Metrics.spacing + 1
                 width: parent.width - 2 * Metrics.spacing
                 height: popup.sectionLabelHeight
                 text: I18n.tr("brightness.monitors")
