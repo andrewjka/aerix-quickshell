@@ -28,7 +28,8 @@ QtObject {
         iconRasterOversample: 1.1, statusBarHeight: 40, statusBarLogoHeight: 40,
         statusBarHorizontalMargin: 10, statusBarWidgetSpacing: 10,
         statusBarFontSize: 16, statusBarWidgetIconSize: 20, popupRowSpacing: 8,
-        osdWidth: 260, osdHeight: 52,
+        osdWidth: 260, osdHeight: 52, notificationTimeoutMs: 5000,
+        notificationCardHeight: 144, notificationCloseCascadeDelayMs: 64,
         appLauncherColumns: 8, appLauncherVisibleRows: 4,
         appLauncherIconSize: 64, appLauncherIconSafeZone: 10,
         appLauncherFontSize: 14, appLauncherSearchCascadeDelayMs: 32,
@@ -154,6 +155,9 @@ QtObject {
     readonly property int statusBarWidgetIconSize: configuration.statusBarWidgetIconSize
     readonly property int popupRowSpacing: configuration.popupRowSpacing
     readonly property int osdWidth: configuration.osdWidth
+    readonly property int notificationTimeoutMs: configuration.notificationTimeoutMs
+    readonly property int notificationCardHeight: configuration.notificationCardHeight
+    readonly property int notificationCloseCascadeDelayMs: configuration.notificationCloseCascadeDelayMs
     readonly property int osdHeight: configuration.osdHeight
     readonly property int appLauncherColumns: configuration.appLauncherColumns
     readonly property int appLauncherVisibleRows: configuration.appLauncherVisibleRows
@@ -187,6 +191,7 @@ QtObject {
         return [bezierCurve[0], bezierCurve[1], bezierCurve[2], 1 + overshoot, 1, 1];
     }
 
+    // Парсер обновляется вместе с набором секций metrics.conf при reload.
     function loadConfiguration(text) {
         try {
             configuration = Config.parse(text);

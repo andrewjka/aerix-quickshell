@@ -11,6 +11,7 @@ var sections = {
                 "statusBarWidgetSpacing", "statusBarFontSize",
                 "statusBarWidgetIconSize"],
     popup: ["popupRowSpacing"],
+    notifications: ["notificationTimeoutMs", "notificationCardHeight", "notificationCloseCascadeDelayMs"],
     osd: ["osdWidth", "osdHeight"],
     appLauncher: ["appLauncherColumns", "appLauncherVisibleRows",
                   "appLauncherIconSize", "appLauncherIconSafeZone",
@@ -25,6 +26,7 @@ var sections = {
              "springOvershoot", "bezierCurve"]
 };
 var integerKeys = [
+    "notificationTimeoutMs", "notificationCardHeight", "notificationCloseCascadeDelayMs",
     "spacing", "baseFontSize", "panelRadius", "panelShadowRadius",
     "groupHeight", "panelHeight", "bottomMargin", "triggerHeight",
     "panelHorizontalMargin", "panelPadding", "iconSlotSize", "iconSize",

@@ -36,6 +36,7 @@ PanelWindow {
             keyboardLayout.dismissPopup();
             brightness.dismissPopup();
             volume.dismissPopup();
+            notification.dismissPopup();
         }
     }
 
@@ -64,11 +65,13 @@ PanelWindow {
         MouseArea {
             anchors.fill: parent
             enabled: keyboardLayout.popupOpen || brightness.popupOpen || volume.popupOpen
+                || notification.popupOpen
             acceptedButtons: Qt.AllButtons
             onClicked: {
                 keyboardLayout.dismissPopup();
                 brightness.dismissPopup();
                 volume.dismissPopup();
+                notification.dismissPopup();
             }
         }
 
@@ -101,6 +104,7 @@ PanelWindow {
             onPopupOpened: {
                 brightness.dismissPopup();
                 volume.dismissPopup();
+                notification.dismissPopup();
             }
         }
 
@@ -114,11 +118,26 @@ PanelWindow {
             onPopupOpened: {
                 keyboardLayout.dismissPopup();
                 volume.dismissPopup();
+                notification.dismissPopup();
             }
         }
 
         VolumeWidget {
             id: volume
+            barWindow: statusBar
+            anchors.right: notification.left
+            anchors.rightMargin: Metrics.statusBarWidgetSpacing
+            anchors.verticalCenter: parent.verticalCenter
+            visible: surface.rightWidgetsFit
+            onPopupOpened: {
+                keyboardLayout.dismissPopup();
+                brightness.dismissPopup();
+                notification.dismissPopup();
+            }
+        }
+
+        NotificationWidget {
+            id: notification
             barWindow: statusBar
             anchors.right: parent.right
             anchors.rightMargin: Metrics.spacing
@@ -127,6 +146,7 @@ PanelWindow {
             onPopupOpened: {
                 keyboardLayout.dismissPopup();
                 brightness.dismissPopup();
+                volume.dismissPopup();
             }
         }
 
@@ -139,7 +159,7 @@ PanelWindow {
 
         readonly property int rightWidgetsWidth: keyboardLayout.implicitWidth
             + brightness.implicitWidth + volume.implicitWidth
-            + 2 * Metrics.statusBarWidgetSpacing
+            + notification.implicitWidth + 3 * Metrics.statusBarWidgetSpacing
         readonly property bool rightWidgetsFit: parent.width >= 2 * (
             Metrics.spacing + rightWidgetsWidth) + clock.implicitWidth
     }
