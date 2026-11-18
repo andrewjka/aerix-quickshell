@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import "../../core"
 
@@ -69,6 +70,15 @@ PanelWindow {
                 if (!running) popup.finishDismissal();
             }
         }
+    }
+
+    // Захват ввода остаётся только у самого popup. Клик вне его границ
+    // очищает grab в Hyprland и запускает обычное обратное закрытие.
+    HyprlandFocusGrab {
+        id: outsideClickGrab
+        active: popup.expanded
+        windows: [popup]
+        onCleared: popup.dismiss()
     }
 
     // Явный data оставляет служебные объекты вне пользовательского contentData.
