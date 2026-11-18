@@ -1,8 +1,14 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import "../../core"
-import "../../services"
+import "../../../core"
+import "../../../services"
+import "../../shared" as Shared
+import ".."
+import "../Brightness"
+import "../Volume"
+import "../KeyboardLayout"
+import "../Notification"
 
 // Одно окно на монитор. Данные виджетов поступают из общих singleton-сервисов.
 PanelWindow {
@@ -27,16 +33,20 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aerix:status-bar"
 
+    // Единственная точка взаимоисключения popup; новые кнопки добавляются в список.
+    readonly property var popupWidgets: [keyboardLayout, brightness, volume, notification]
+    function dismissPopups(except = null) {
+        for (const widget of popupWidgets)
+            if (widget !== except) widget.dismissPopup();
+    }
+
     Connections {
         target: OverviewService
 
         function onOpenChanged() {
             if (!OverviewService.open)
                 return;
-            keyboardLayout.dismissPopup();
-            brightness.dismissPopup();
-            volume.dismissPopup();
-            notification.dismissPopup();
+            statusBar.dismissPopups();
         }
     }
 
@@ -67,31 +77,20 @@ PanelWindow {
             enabled: keyboardLayout.popupOpen || brightness.popupOpen || volume.popupOpen
                 || notification.popupOpen
             acceptedButtons: Qt.AllButtons
-            onClicked: {
-                keyboardLayout.dismissPopup();
-                brightness.dismissPopup();
-                volume.dismissPopup();
-                notification.dismissPopup();
-            }
+            onClicked: statusBar.dismissPopups()
         }
 
         // Логотип скрывается раньше, чем может пересечься с часами.
-        Image {
+        Shared.IconWidget {
             id: brandLogo
-            // Aerix-logo.svg имеет квадратное поле 128 × 128. Ширина зависит
-            // только от задаваемой метрики высоты, без цикла Image bindings.
-            readonly property real aspectRatio: 1
             anchors.left: parent.left
             anchors.leftMargin: Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
             height: Metrics.statusBarLogoHeight
-            width: height * aspectRatio
             visible: parent.width >= 2 * (Metrics.spacing + width) + clock.implicitWidth
-            source: Qt.resolvedUrl("../../assets/icons/Aerix-logo.svg")
-            sourceSize.width: Math.ceil(width * statusBar.devicePixelRatio)
-            sourceSize.height: Math.ceil(height * statusBar.devicePixelRatio)
-            fillMode: Image.PreserveAspectFit
-            smooth: true
+            iconSource: Qt.resolvedUrl("../../../assets/icons/Aerix-logo.svg")
+            tinted: false
+            devicePixelRatio: statusBar.devicePixelRatio
         }
 
         KeyboardLayoutWidget {
@@ -101,11 +100,7 @@ PanelWindow {
             anchors.rightMargin: Metrics.statusBarWidgetSpacing
             anchors.verticalCenter: parent.verticalCenter
             visible: surface.rightWidgetsFit
-            onPopupOpened: {
-                brightness.dismissPopup();
-                volume.dismissPopup();
-                notification.dismissPopup();
-            }
+            onPopupOpened: statusBar.dismissPopups(keyboardLayout)
         }
 
         BrightnessWidget {
@@ -115,11 +110,7 @@ PanelWindow {
             anchors.rightMargin: Metrics.statusBarWidgetSpacing
             anchors.verticalCenter: parent.verticalCenter
             visible: surface.rightWidgetsFit
-            onPopupOpened: {
-                keyboardLayout.dismissPopup();
-                volume.dismissPopup();
-                notification.dismissPopup();
-            }
+            onPopupOpened: statusBar.dismissPopups(brightness)
         }
 
         VolumeWidget {
@@ -129,11 +120,7 @@ PanelWindow {
             anchors.rightMargin: Metrics.statusBarWidgetSpacing
             anchors.verticalCenter: parent.verticalCenter
             visible: surface.rightWidgetsFit
-            onPopupOpened: {
-                keyboardLayout.dismissPopup();
-                brightness.dismissPopup();
-                notification.dismissPopup();
-            }
+            onPopupOpened: statusBar.dismissPopups(volume)
         }
 
         NotificationWidget {
@@ -143,11 +130,7 @@ PanelWindow {
             anchors.rightMargin: Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
             visible: surface.rightWidgetsFit
-            onPopupOpened: {
-                keyboardLayout.dismissPopup();
-                brightness.dismissPopup();
-                volume.dismissPopup();
-            }
+            onPopupOpened: statusBar.dismissPopups(notification)
         }
 
         // Независимое центрирование оставляет часы в центре экрана, когда

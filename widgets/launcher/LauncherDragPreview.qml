@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import "../../core"
+import "../shared" as Shared
 
 // Отдельная surface гарантирует, что preview drag остаётся выше стеклянных
 // surfaces папок, не отключая их blur на время переноса.
@@ -41,14 +42,13 @@ PanelWindow {
         height: width
         opacity: window.contentOpacity
 
-        Image {
-            anchors.fill: parent
+        Shared.IconWidget {
+            anchors.centerIn: parent
+            height: parent.height
             visible: !window.folderPreview
-            source: window.iconSource
-            sourceSize: Qt.size(Math.ceil(width * window.devicePixelRatio),
-                Math.ceil(height * window.devicePixelRatio))
-            fillMode: Image.PreserveAspectFit
-            smooth: true
+            iconSource: window.iconSource
+            tinted: false
+            devicePixelRatio: window.devicePixelRatio
         }
 
         Rectangle {
@@ -59,29 +59,11 @@ PanelWindow {
             border.width: 1
             border.color: Theme.borderColor
 
-            Grid {
+            Shared.FolderPreview {
                 anchors.fill: parent
                 anchors.margins: Metrics.spacing / 2
-                columns: 2
-                spacing: Metrics.spacing / 2
-
-                Repeater {
-                    model: window.entries.slice(0, 4)
-
-                    delegate: Image {
-                        required property var modelData
-                        width: (parent.width - Metrics.spacing / 2) / 2
-                        height: width
-                        readonly property string iconName: String(modelData?.icon ?? "")
-                        source: iconName.startsWith("/") ? "file://" + iconName
-                            : iconName && Quickshell.hasThemeIcon(iconName)
-                                ? Quickshell.iconPath(iconName) : ""
-                        sourceSize: Qt.size(Math.ceil(width * window.devicePixelRatio),
-                            Math.ceil(height * window.devicePixelRatio))
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                    }
-                }
+                entries: window.entries
+                devicePixelRatio: window.devicePixelRatio
             }
         }
     }

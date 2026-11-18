@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import "../../core"
 import "../../services"
+import "../shared" as Shared
 
 Item {
     id: icon
@@ -58,29 +59,19 @@ Item {
             }
         }
 
-        Image {
+        Shared.IconWidget {
             id: appImage
-            anchors.fill: parent
-            source: icon.iconSource
-            cache: true
-            // Image-провайдер темы сам выбирает SVG/PNG, а sourceSize задаёт
-            // ему достаточно большой размер целевой текстуры.
-            sourceSize: Qt.size(
-                Math.ceil(width * Metrics.iconHoverScale
-                          * Math.max(1, Screen.devicePixelRatio)
-                          * Metrics.iconRasterOversample),
-                Math.ceil(height * Metrics.iconHoverScale
-                          * Math.max(1, Screen.devicePixelRatio)
-                          * Metrics.iconRasterOversample))
-            fillMode: Image.PreserveAspectFit
-            smooth: true
-            visible: icon.iconSource !== ""
-                     && status === Image.Ready
+            anchors.centerIn: parent
+            height: parent.height
+            iconSource: icon.iconSource
+            tinted: false
+            devicePixelRatio: Math.max(1, Screen.devicePixelRatio)
+            rasterScale: Metrics.iconHoverScale * Metrics.iconRasterOversample
         }
 
         Rectangle {
             anchors.fill: parent
-            visible: !appImage.visible
+            visible: appImage.status !== Image.Ready
             radius: Metrics.panelRadius
             color: Theme.backgroundColor
 

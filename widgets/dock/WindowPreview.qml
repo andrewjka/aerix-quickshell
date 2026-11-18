@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Wayland
 import "../../core"
 import "../../services"
+import "../shared" as Shared
 
 // Hyprglass обрабатывает blur только на layer-shell surface. Snapshot и его
 // lifecycle остаются прежними, но контейнером служит отдельный PanelWindow.
@@ -245,19 +246,14 @@ PanelWindow {
             width: parent.width
             height: Metrics.previewTitleHeight
 
-            Image {
+            Shared.IconWidget {
                 id: previewIcon
                 x: 10
                 y: (parent.height - height) / 2
-                width: 16
                 height: 16
-                source: preview.toplevel ? IconService.resolveIcon(preview.toplevel) : ""
-                cache: true
-                sourceSize: Qt.size(
-                    Math.ceil(width * Math.max(1, preview.devicePixelRatio)),
-                    Math.ceil(height * Math.max(1, preview.devicePixelRatio)))
-                fillMode: Image.PreserveAspectFit
-                smooth: true
+                iconSource: preview.toplevel ? IconService.resolveIcon(preview.toplevel) : ""
+                tinted: false
+                devicePixelRatio: preview.devicePixelRatio
             }
 
             Text {

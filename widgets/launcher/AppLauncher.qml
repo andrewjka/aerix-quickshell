@@ -2,11 +2,11 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import "../../core"
 import "../../services"
+import "../shared" as Shared
 
 // Overlay и стеклянная панель разделены на surface, чтобы blur работал у обоих.
 Scope {
@@ -395,30 +395,16 @@ Scope {
                         cursorShape: Qt.IBeamCursor
                     }
 
-                    Image {
+                    Shared.IconWidget {
                         id: searchIconSource
                         anchors.left: parent.left
                         anchors.leftMargin: Metrics.spacing
                         anchors.verticalCenter: parent.verticalCenter
-                        width: Metrics.statusBarWidgetIconSize
-                        height: width
-                        source: "../../assets/icons/search.svg"
-                        // Рендерим SVG в физическом размере до MultiEffect,
-                        // как общие иконки status bar, без апскейлинга texture.
-                        sourceSize.width: Math.ceil(width
-                            * launcherWindow.devicePixelRatio)
-                        sourceSize.height: Math.ceil(height
-                            * launcherWindow.devicePixelRatio)
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                        visible: false
-                    }
-
-                    MultiEffect {
-                        anchors.fill: searchIconSource
-                        source: searchIconSource
-                        colorization: 1
-                        colorizationColor: Theme.foregroundColor
+                        height: Metrics.statusBarWidgetIconSize
+                        iconSource: Qt.resolvedUrl("../../assets/icons/search.svg")
+                        tintColor: Theme.foregroundColor
+                        whiteSource: true
+                        devicePixelRatio: launcherWindow.devicePixelRatio
                     }
 
                     TextInput {
@@ -735,16 +721,14 @@ Scope {
                             height: width
                             opacity: appTile.isDragSource ? 0 : 1
 
-                            Image {
-                                anchors.fill: parent
-                                asynchronous: true
+                            Shared.IconWidget {
+                                anchors.centerIn: parent
+                                height: parent.height
                                 visible: appTile.launcherItem.type === "application"
-                                source: appTile.iconSource
-                                sourceSize: Qt.size(Math.ceil(width
-                                    * launcherWindow.devicePixelRatio),
-                                    Math.ceil(height * launcherWindow.devicePixelRatio))
-                                fillMode: Image.PreserveAspectFit
-                                smooth: true
+                                iconSource: appTile.iconSource
+                                asynchronous: true
+                                tinted: false
+                                devicePixelRatio: launcherWindow.devicePixelRatio
                             }
 
                             // Папка — такая же стеклянная карточка, как другие
@@ -788,37 +772,11 @@ Scope {
                                     }
                                 }
 
-                                Item {
-                                    id: folderPreview
+                                Shared.FolderPreview {
                                     anchors.fill: parent
                                     anchors.margins: Math.max(2, Metrics.spacing / 2)
-                                    property var entries: appTile.launcherItem.previewEntries ?? []
-
-                                    Repeater {
-                                        model: 4
-
-                                        delegate: Image {
-                                            required property int index
-                                            readonly property var entry:
-                                                folderPreview.entries[index] ?? null
-                                            visible: entry !== null
-                                            width: (folderPreview.width - Metrics.spacing / 2) / 2
-                                            height: (folderPreview.height - Metrics.spacing / 2) / 2
-                                            x: (index % 2) * (width + Metrics.spacing / 2)
-                                            y: Math.floor(index / 2)
-                                                * (height + Metrics.spacing / 2)
-                                            source: entry ? launcher.itemIconSource({
-                                                type: "application",
-                                                entry: entry
-                                            }) : ""
-                                            sourceSize: Qt.size(Math.ceil(width
-                                                * launcherWindow.devicePixelRatio),
-                                                Math.ceil(height
-                                                * launcherWindow.devicePixelRatio))
-                                            fillMode: Image.PreserveAspectFit
-                                            smooth: true
-                                        }
-                                    }
+                                    entries: appTile.launcherItem.previewEntries ?? []
+                                    devicePixelRatio: launcherWindow.devicePixelRatio
                                 }
                             }
                         }
@@ -915,21 +873,18 @@ Scope {
             }
 
             // Только иконка под курсором, без подписи приложения.
-            Image {
+            Shared.IconWidget {
                 id: dragPreview
                 visible: launcher.draggingIcon && !folderPopup.exporting
                     && launcher.openFolderId.length > 0
                 x: launcher.dragPosition.x - width / 2
                 y: launcher.dragPosition.y - height / 2
-                width: Metrics.appLauncherIconSize
-                height: width
+                height: Metrics.appLauncherIconSize
                 z: 10
-                source: launcher.draggedItem?.type === "folder" ? ""
+                iconSource: launcher.draggedItem?.type === "folder" ? ""
                     : launcher.draggedIconSource
-                sourceSize: Qt.size(Math.ceil(width * launcherWindow.devicePixelRatio),
-                    Math.ceil(height * launcherWindow.devicePixelRatio))
-                fillMode: Image.PreserveAspectFit
-                smooth: true
+                tinted: false
+                devicePixelRatio: launcherWindow.devicePixelRatio
                 Rectangle {
                     anchors.fill: parent
                     visible: launcher.draggedItem?.type === "folder"
@@ -937,22 +892,11 @@ Scope {
                     color: Theme.backgroundColor
                     border.color: Theme.borderColor
                     border.width: 1
-                    Grid {
+                    Shared.FolderPreview {
                         anchors.fill: parent
                         anchors.margins: Metrics.spacing / 2
-                        columns: 2
-                        spacing: Metrics.spacing / 2
-                        Repeater {
-                            model: launcher.draggedItem?.previewEntries ?? []
-                            Image {
-                                required property var modelData
-                                width: (dragPreview.width - 1.5 * Metrics.spacing) / 2
-                                height: width
-                                source: launcher.itemIconSource({entry: modelData})
-                                sourceSize: Qt.size(width * launcherWindow.devicePixelRatio,
-                                    height * launcherWindow.devicePixelRatio)
-                            }
-                        }
+                        entries: launcher.draggedItem?.previewEntries ?? []
+                        devicePixelRatio: launcherWindow.devicePixelRatio
                     }
                 }
             }

@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Wayland
 import "../../core"
 import "../../services"
+import "../shared" as Shared
 
 // Отдельная surface позволяет compositor-у размыть основное окно launcher под
 // папкой; дочерний Rectangle в уже существующей surface этого сделать не может.
@@ -237,20 +238,16 @@ PanelWindow {
                     : iconName && Quickshell.hasThemeIcon(iconName)
                       ? Quickshell.iconPath(iconName) : ""
 
-                Image {
+                Shared.IconWidget {
                     id: appIcon
                     anchors.left: parent.left
                     anchors.leftMargin: folderSurface.gridGap / 2
                     anchors.top: parent.top
                     anchors.topMargin: folderSurface.iconOffset
-                    width: folderSurface.iconSize
-                    height: width
-                    source: folderTile.iconSource
-                    sourceSize: Qt.size(Math.ceil(width
-                        * folderWindow.devicePixelRatio), Math.ceil(height
-                        * folderWindow.devicePixelRatio))
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
+                    height: folderSurface.iconSize
+                    iconSource: folderTile.iconSource
+                    tinted: false
+                    devicePixelRatio: folderWindow.devicePixelRatio
                     opacity: folderWindow.draggedKey === folderTile.modelData.key ? 0 : 1
                 }
 
@@ -367,16 +364,15 @@ PanelWindow {
         }
     }
 
-    Image {
+    Shared.IconWidget {
         visible: folderWindow.draggedKey !== ""
         // Preview должен оставаться над плитками открытой папки.
         z: 10
         x: folderWindow.pointerPosition.x - width / 2
         y: folderWindow.pointerPosition.y - height / 2
-        width: Metrics.appLauncherIconSize
-        height: width
-        source: visible ? folderWindow.draggedSource : ""
-        sourceSize: Qt.size(width * folderWindow.devicePixelRatio, height * folderWindow.devicePixelRatio)
-        fillMode: Image.PreserveAspectFit
+        height: Metrics.appLauncherIconSize
+        iconSource: visible ? folderWindow.draggedSource : ""
+        tinted: false
+        devicePixelRatio: folderWindow.devicePixelRatio
     }
 }

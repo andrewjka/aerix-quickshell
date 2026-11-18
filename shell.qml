@@ -4,6 +4,7 @@ import Quickshell
 import QtQml
 import "services"
 import "widgets/bar"
+import "widgets/bar/StatusBar"
 import "widgets/dock"
 import "widgets/overview"
 import "widgets/launcher"

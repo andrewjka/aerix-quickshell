@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import "../../core"
+import "../shared" as Shared
 
 // Отдельный буфер значка даёт compositor-у фон панели под ним для blur.
 // Ввод остаётся у делегата сетки, включая mouse grab во время drag.
@@ -68,32 +69,12 @@ PanelWindow {
             color: Theme.backgroundColor
             border.width: 1
             border.color: Theme.borderColor
-            Grid {
+            Shared.FolderPreview {
                 anchors.fill: parent
                 anchors.margins: Math.max(2, Metrics.spacing / 2)
-                columns: 2
-                spacing: Metrics.spacing / 2
-                Repeater {
-                    model: window.entries.slice(0, 4)
-                    Image {
-                        required property var modelData
-                        width: (parent.width - Metrics.spacing / 2) / 2
-                        height: width
-                        readonly property string iconName: String(modelData?.icon ?? "")
-                        source: iconName.startsWith("/") ? "file://" + iconName
-                            : iconName && Quickshell.hasThemeIcon(iconName)
-                                ? Quickshell.iconPath(iconName) : ""
-                        // Геометрия surface масштабируется при открытии, но
-                        // декодировать миниатюру заново на каждом кадре не нужно.
-                        readonly property int rasterSize: Math.ceil(
-                            (Metrics.appLauncherIconSize - 1.5 * Metrics.spacing)
-                                / 2 * window.devicePixelRatio)
-                        asynchronous: true
-                        sourceSize: Qt.size(rasterSize, rasterSize)
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                    }
-                }
+                entries: window.entries
+                devicePixelRatio: window.devicePixelRatio
+                rasterIconHeight: (Metrics.appLauncherIconSize - 1.5 * Metrics.spacing) / 2
             }
         }
     }

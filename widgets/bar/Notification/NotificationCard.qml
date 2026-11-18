@@ -1,35 +1,20 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import "../../core"
-import "../../services"
+import "../../../core"
+import "../../../services"
 
 // Общая компактная карточка для истории и toast-а.
 Item {
     id: card
 
     required property var notification
-    property bool compact: false
-    property bool animateClosing: true
-    readonly property bool closing: notification?.closing ?? false
-    property real closeReveal: closing && animateClosing ? 0 : 1
     readonly property int outerPadding: Metrics.spacing
     readonly property int maxBodyHeight: Math.max(0, height - bodyLabel.y
         - outerPadding)
     implicitHeight: Metrics.notificationCardHeight
     width: parent?.width ?? 0
     height: implicitHeight
-    scale: Metrics.spring.startScale + (1 - Metrics.spring.startScale) * closeReveal
-    opacity: closeReveal
-    transformOrigin: Item.Center
-
-    Behavior on closeReveal {
-        NumberAnimation {
-            duration: Metrics.spring.durationMs
-            easing.type: Metrics.spring.easingType
-            easing.bezierCurve: Metrics.spring.bezierCurve
-        }
-    }
 
     Rectangle {
         anchors.fill: parent
