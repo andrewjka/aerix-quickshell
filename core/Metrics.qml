@@ -30,6 +30,8 @@ QtObject {
         statusBarFontSize: 16, statusBarWidgetIconSize: 20, popupRowSpacing: 8,
         osdWidth: 260, osdHeight: 52, notificationTimeoutMs: 5000,
         notificationCardHeight: 144, notificationCloseCascadeDelayMs: 64,
+        notificationCardSenderFontSize: 12, notificationCardTitleFontSize: 16,
+        notificationCardContentFontSize: 12,
         appLauncherColumns: 8, appLauncherVisibleRows: 4,
         appLauncherIconSize: 64, appLauncherIconSafeZone: 10,
         appLauncherFontSize: 14, appLauncherSearchCascadeDelayMs: 32,
@@ -158,6 +160,9 @@ QtObject {
     readonly property int notificationTimeoutMs: configuration.notificationTimeoutMs
     readonly property int notificationCardHeight: configuration.notificationCardHeight
     readonly property int notificationCloseCascadeDelayMs: configuration.notificationCloseCascadeDelayMs
+    readonly property int notificationCardSenderFontSize: configuration.notificationCardSenderFontSize
+    readonly property int notificationCardTitleFontSize: configuration.notificationCardTitleFontSize
+    readonly property int notificationCardContentFontSize: configuration.notificationCardContentFontSize
     readonly property int osdHeight: configuration.osdHeight
     readonly property int appLauncherColumns: configuration.appLauncherColumns
     readonly property int appLauncherVisibleRows: configuration.appLauncherVisibleRows

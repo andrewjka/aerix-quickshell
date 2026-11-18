@@ -3,8 +3,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 
-// Высота задаётся потребителем; ширина следует пропорциям исходного файла.
-// sourceSize зависит только от высоты, чтобы не создавать цикл размеров.
+// Высота задаётся потребителем; обычные icon-темы используют квадратное поле.
+// Явный aspectRatio позволяет редким неквадратным ресурсам сохранить форму,
+// при этом sourceSize не зависит от ещё незагруженного Image.
 Item {
     id: root
     required property url iconSource
@@ -13,6 +14,7 @@ Item {
     property bool whiteSource: false
     property real devicePixelRatio: 1
     property bool asynchronous: false
+    property real aspectRatio: 1
     // Дополнительная плотность нужна для иконок, которые временно растут при
     // hover: текстура остаётся чёткой и при анимированном масштабе.
     property real rasterScale: 1
@@ -20,8 +22,6 @@ Item {
     readonly property int status: sourceImage.status
     readonly property bool directImage: !tinted || (whiteSource
         && tintColor.r === 1 && tintColor.g === 1 && tintColor.b === 1)
-    readonly property real aspectRatio: sourceImage.implicitHeight > 0
-        ? sourceImage.implicitWidth / sourceImage.implicitHeight : 1
     implicitWidth: height * aspectRatio
     width: implicitWidth
 
@@ -30,7 +30,10 @@ Item {
         anchors.fill: parent
         source: root.iconSource
         asynchronous: root.asynchronous
-        sourceSize.width: -1
+        // Icon theme выбирает вариант по обоим измерениям. При sourceSize.width
+        // равном -1 он часто отдавал малую 32px версию и растягивал её в launcher.
+        sourceSize.width: Math.max(1, Math.ceil(root.width * root.devicePixelRatio
+            * root.rasterScale))
         sourceSize.height: Math.max(1, Math.ceil(root.height * root.devicePixelRatio
             * root.rasterScale))
         fillMode: Image.PreserveAspectFit

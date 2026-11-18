@@ -13,7 +13,9 @@ Item {
     required property Component popupComponent
     property bool canInteract: true
     property bool popupOpen: false
-    readonly property BarPopup popup: popupLoader.item as BarPopup
+    // Loader возвращает фактический дочерний тип (BrightnessPopup и т. п.).
+    // `var` избегает хрупкого QML cast к базовому типу при первом кадре загрузки.
+    readonly property var popup: popupLoader.item
     property string label: ""
     property bool badgeVisible: false
     implicitWidth: content.width

@@ -87,6 +87,7 @@ PanelWindow {
             anchors.leftMargin: Metrics.spacing
             anchors.verticalCenter: parent.verticalCenter
             height: Metrics.statusBarLogoHeight
+            aspectRatio: 600 / 199.41692
             visible: parent.width >= 2 * (Metrics.spacing + width) + clock.implicitWidth
             iconSource: Qt.resolvedUrl("../../../assets/icons/Aerix-logo.svg")
             tinted: false

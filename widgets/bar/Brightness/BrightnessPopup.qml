@@ -9,7 +9,6 @@ import "../../../services"
 Shared.BarPopup {
     id: popup
     layerNamespace: "aerix:brightness"
-    deferredFocus: true
     readonly property int mixerHeight: 42
     readonly property int rowHeight: 32
     readonly property int visibleRows: Math.min(5, Math.max(1, BrightnessService.monitors.length))

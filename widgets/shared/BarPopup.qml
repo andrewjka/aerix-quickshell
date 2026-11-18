@@ -3,10 +3,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import "../../core"
 
-// Общий lifecycle popup: spring, focus grab и отдельная тень.
+// Общий lifecycle popup: spring, геометрия и отдельная тень.
 // Содержимое и высоту задаёт виджет; Loader владельца выгружает окно по dismissed.
 PanelWindow {
     id: popup
@@ -17,7 +16,6 @@ PanelWindow {
     property real preferredWidth: 280
     property bool expanded: false
     property real reveal: expanded ? 1 : 0
-    property bool deferredFocus: false
     property bool restartOnReopen: false
     // У истории заливка и тень нужны только заголовку, список рисуется отдельно.
     property real panelHeight: surfaceHeight
@@ -31,8 +29,8 @@ PanelWindow {
 
     function dismiss() {
         expanded = false;
-        // Focus grab может закрыть окно ещё до первого кадра. Тогда анимация
-        // не стартует и onRunningChanged не придёт, но Loader всё равно нужен reset.
+        // При закрытии до первого кадра анимация не стартует. Loader всё равно
+        // должен получить финальный callback, иначе popup останется в памяти.
         if (reveal === 0)
             Qt.callLater(finishDismissal);
     }
@@ -45,15 +43,8 @@ PanelWindow {
         else
             expanded = !expanded;
     }
-    function syncFocusGrab() { focusGrab.active = expanded; }
 
     Component.onCompleted: expanded = true
-    onExpandedChanged: {
-        if (deferredFocus)
-            Qt.callLater(syncFocusGrab);
-        else
-            syncFocusGrab();
-    }
 
     screen: barWindow.screen
     anchors { top: true; left: true }
@@ -70,7 +61,10 @@ PanelWindow {
     mask: Region { item: popupFrame }
 
     Behavior on reveal {
-        SpringAnimation {
+        NumberAnimation {
+            duration: Metrics.spring.durationMs
+            easing.type: Metrics.spring.easingType
+            easing.bezierCurve: Metrics.spring.bezierCurve
             onRunningChanged: {
                 if (!running) popup.finishDismissal();
             }
@@ -85,12 +79,6 @@ PanelWindow {
             anchorItem: popup.anchorItem
             preferredWidth: popup.preferredWidth
             surfaceHeight: popup.surfaceHeight
-        },
-        HyprlandFocusGrab {
-            id: focusGrab
-            // Bar остаётся в whitelist для повторного клика по кнопке.
-            windows: [popup, popup.barWindow]
-            onCleared: popup.dismiss()
         },
         PanelShadowWindow {
             targetScreen: popup.screen

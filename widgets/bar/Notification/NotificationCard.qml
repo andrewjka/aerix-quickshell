@@ -34,7 +34,7 @@ Item {
         text: card.notification?.appName || card.notification?.desktopEntry
             || I18n.tr("notifications.title")
         color: Theme.foregroundColor
-        font.pixelSize: 12
+        font.pixelSize: Metrics.notificationCardSenderFontSize
         font.weight: Font.Medium
         elide: Text.ElideRight
         textFormat: Text.PlainText
@@ -49,7 +49,7 @@ Item {
         text: card.notification?.summary || card.notification?.appName
             || I18n.tr("notifications.title")
         color: Theme.foregroundColor
-        font.pixelSize: Metrics.statusBarFontSize
+        font.pixelSize: Metrics.notificationCardTitleFontSize
         font.weight: Font.Medium
         wrapMode: Text.Wrap
         maximumLineCount: 1
@@ -66,7 +66,7 @@ Item {
         visible: text.length > 0
         height: Math.min(implicitHeight, card.maxBodyHeight)
         color: Theme.foregroundColor
-        font.pixelSize: 12
+        font.pixelSize: Metrics.notificationCardContentFontSize
         wrapMode: Text.Wrap
         maximumLineCount: 2
         elide: Text.ElideRight

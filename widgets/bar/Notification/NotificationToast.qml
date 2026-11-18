@@ -27,7 +27,10 @@ Item {
     implicitWidth: layout.windowRect.width
     implicitHeight: layout.windowRect.height
     Behavior on reveal {
-        Shared.SpringAnimation {
+        NumberAnimation {
+            duration: Metrics.spring.durationMs
+            easing.type: Metrics.spring.easingType
+            easing.bezierCurve: Metrics.spring.bezierCurve
             onRunningChanged: {
                 if (!running && !toast.expanded && toast.reveal === 0)
                     toast.dismissed();
