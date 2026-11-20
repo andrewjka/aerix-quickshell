@@ -3,9 +3,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import "../shared" as Shared
-import "../../core"
-import "../../services"
+import "shared" as Shared
+import "../core"
+import "../services"
 
 // Один OSD на экран. Виден только экземпляр, выбранный OsdService.
 PanelWindow {
@@ -118,7 +118,7 @@ PanelWindow {
         Shared.ValueSlider {
             anchors.fill: parent
             anchors.margins: Metrics.spacing
-            iconSource: Qt.resolvedUrl("../../assets/icons/" + (OsdService.displayedMode
+            iconSource: Qt.resolvedUrl("../assets/icons/" + (OsdService.displayedMode
                 === "volume" ? AudioService.iconName : "brightness.svg"))
             devicePixelRatio: osd.devicePixelRatio
             value: OsdService.displayedMode === "volume"

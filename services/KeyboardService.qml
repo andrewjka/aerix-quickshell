@@ -57,7 +57,9 @@ QtObject {
     readonly property bool available: deviceName.length > 0
         && activeIndex >= 0 && activeIndex < layouts.length
     readonly property string activeLabel: available
-        ? String(layouts[activeIndex].label)
+        ? (capsLockEnabled
+            ? String(layouts[activeIndex].label).toUpperCase()
+            : String(layouts[activeIndex].label).toLowerCase())
         : "??"
 
     signal layoutSelectionResolved(int token, bool confirmed)

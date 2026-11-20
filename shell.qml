@@ -3,7 +3,7 @@ pragma ComponentBehavior: Bound
 import Quickshell
 import QtQml
 import "services"
-import "widgets/bar"
+import "widgets"
 import "widgets/bar/StatusBar"
 import "widgets/dock"
 import "widgets/overview"

@@ -18,5 +18,13 @@ QtObject {
         function toggleAppLauncher(): void {
             AppLauncherService.toggle();
         }
+
+        function refreshKeyboardState(): void {
+            KeyboardService.refresh();
+        }
+
+        function toggleKeyboardCapsLock(): void {
+            KeyboardService.noteCapsLockToggle();
+        }
     }
 }
