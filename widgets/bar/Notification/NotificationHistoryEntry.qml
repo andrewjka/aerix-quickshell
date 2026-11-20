@@ -93,25 +93,45 @@ Item {
             if (slot.popup.expanded) entryAnimation.start();
         }
         sourceComponent: Shared.CardLayer {
+            // Три spring-масштаба перемножаются; окно и тень получают общий
+            // запас, ограниченный физическими границами экрана.
+            readonly property int animationMargin: Math.ceil(
+                Math.max(slot.width, slot.popup.surfaceHeight)
+                * Math.max(0, Math.pow(Metrics.spring.maximumScale, 3) - 1))
+                + slot.popup.layout.shadowMargin
+            readonly property rect baseWindow: slot.popup.layout.windowRect
+            readonly property real windowLeft: Math.max(0, baseWindow.x - animationMargin)
+            readonly property real windowTop: Math.max(0, baseWindow.y - animationMargin)
+            readonly property real offsetX: baseWindow.x - windowLeft
+            readonly property real offsetY: baseWindow.y - windowTop
+            readonly property bool animating: entryAnimation.running
+                || slot.popup.reveal !== 1 || slot.closing
+            readonly property bool inViewport: slot.y + slot.height > slot.list.contentY
+                && slot.y < slot.list.contentY + slot.list.height
+            readonly property real revealPadding: animating && inViewport ? animationMargin : 0
             targetScreen: slot.popup.screen
             layerNamespace: "aerix:notifications"
             shadowNamespace: "aerix:notifications-shadow"
-            windowRect: slot.popup.layout.windowRect
+            windowRect: Qt.rect(windowLeft, windowTop,
+                Math.min(slot.popup.screen.width, baseWindow.x + baseWindow.width
+                    + animationMargin) - windowLeft,
+                Math.min(slot.popup.screen.height, baseWindow.y + baseWindow.height
+                    + animationMargin) - windowTop)
             interactive: false
             shown: slot.popup.reveal > 0 && slot.entryReveal > 0 && slot.visible
-            // Горизонтальный запас не даёт spring/tени обрезаться по бокам;
-            // вертикальная граница строго ограничивает карточки областью списка.
+            // Во время spring расширяется viewport видимых слотов; после
+            // появления список снова обрезает прокрученные карточки.
             viewport: Qt.rect(
-                slot.popup.frame.x + slot.popup.frame.width * (1 - slot.popup.frame.scale) / 2
-                    + slot.list.x * slot.popup.frame.scale - slot.popup.layout.horizontalMargin,
-                slot.popup.frame.y + slot.list.y * slot.popup.frame.scale,
-                slot.list.width * slot.popup.frame.scale + 2 * slot.popup.layout.horizontalMargin,
-                slot.list.height * slot.popup.frame.scale)
+                offsetX + slot.popup.frame.x + slot.popup.frame.width * (1 - slot.popup.frame.scale) / 2
+                    + slot.list.x * slot.popup.frame.scale - animationMargin,
+                offsetY + slot.popup.frame.y + slot.list.y * slot.popup.frame.scale - revealPadding,
+                slot.list.width * slot.popup.frame.scale + 2 * animationMargin,
+                slot.list.height * slot.popup.frame.scale + 2 * revealPadding)
             cardRect: Qt.rect(
-                slot.popup.frame.x + slot.popup.frame.width * (1 - slot.surfaceScale) / 2
+                offsetX + slot.popup.frame.x + slot.popup.frame.width * (1 - slot.surfaceScale) / 2
                     + slot.list.x * slot.surfaceScale
                     + slot.width * slot.surfaceScale * (1 - slot.closeScale) / 2,
-                slot.popup.frame.y + (slot.list.y + slot.y - slot.list.contentY) * slot.surfaceScale
+                offsetY + slot.popup.frame.y + (slot.list.y + slot.y - slot.list.contentY) * slot.surfaceScale
                     + slot.height * slot.surfaceScale * (1 - slot.closeScale) / 2,
                 slot.width, slot.height)
             cardScale: slot.surfaceScale * slot.closeScale

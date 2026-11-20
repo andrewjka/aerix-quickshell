@@ -8,6 +8,7 @@ import "widgets/bar/StatusBar"
 import "widgets/dock"
 import "widgets/overview"
 import "widgets/launcher"
+import "widgets/polkit"
 
 ShellRoot {
     id: shellRoot
@@ -33,6 +34,10 @@ ShellRoot {
             onDismissed: AppLauncherService.close()
         }
     }
+
+    // Агент должен существовать постоянно: polkit регистрирует его в D-Bus
+    // при создании; компактный popup показывается только на время запроса.
+    PolkitDialog {}
 
     // Один процесс обслуживает все экраны. Variants создаёт окна панелей,
     // а singleton-сервисы остаются общими для всех мониторов.

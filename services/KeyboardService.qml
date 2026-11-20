@@ -37,6 +37,7 @@ QtObject {
     property string deviceId: ""
     property var layouts: []
     property int activeIndex: -1
+    property bool capsLockEnabled: false
     property string errorKey: ""
     // Process.running меняется асинхронно; этот флаг закрывает окно между
     // постановкой query на запуск и фактическим стартом дочернего процесса.
@@ -92,7 +93,8 @@ QtObject {
                         : entry.layout
                 })),
                 deviceId: snapshot.deviceId,
-                activeIndex: snapshot.activeIndex
+                activeIndex: snapshot.activeIndex,
+                capsLockEnabled: snapshot.capsLockEnabled
             }
         };
     }
@@ -131,8 +133,16 @@ QtObject {
         // но само по себе не должно пересоздавать неизменную модель.
         deviceName = snapshot.deviceName;
         activeIndex = snapshot.activeIndex;
+        capsLockEnabled = snapshot.capsLockEnabled;
         errorKey = "";
         return true;
+    }
+
+    // Когда полю ввода принадлежит keyboard focus, Qt получает CapsLock раньше,
+    // чем Hyprland успевает выдать новое состояние через IPC. Обновляем чип
+    // сразу, а следующий snapshot остаётся источником истины.
+    function noteCapsLockToggle() {
+        capsLockEnabled = !capsLockEnabled;
     }
 
     /**

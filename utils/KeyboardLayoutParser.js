@@ -72,7 +72,10 @@ function parseDevices(json) {
                 layout: layout,
                 variant: variants[layoutIndex] ?? ""
             })),
-            activeIndex: index
+            activeIndex: index,
+            // Hyprland публикует состояние как bool. Старые версии, где поля
+            // ещё нет, безопасно считаем выключенным.
+            capsLockEnabled: keyboard.capsLock === true
         }
     };
 }

@@ -1,0 +1,3 @@
+module Aerix.Polkit
+PolkitDialog 1.0 PolkitDialog.qml
+LockoutMonitor 1.0 LockoutMonitor.qml
